@@ -2006,7 +2006,8 @@ DEFAULT_CONFIG = {
     # URL (falls back to the in-repo snapshot on network failure), so picker lists update without a
     # release. Default URL is served by the docs-site GitHub Pages deploy.
     "model_catalog": {
-        "enabled": True,
+        # gugu fork: 目录来自 Nous 域名，默认关闭；咕咕侧的模型列表由网关 /v1/models 实时拉取。
+        "enabled": False,
         "url": "https://hermes-agent.nousresearch.com/docs/api/model-catalog.json",
         # Disk cache TTL in minutes. The gateway refreshes in the background on this cadence; the
         # CLI refetches on the next /model or `hermes model` once the cache is older. Network
@@ -2608,7 +2609,8 @@ DEFAULT_CONFIG = {
         # Upper bound (seconds) on the Nous auth keepalive tick, which derives from the
         # server-issued credential lifetime (raising above it has no effect). 0 disables the
         # keepalive thread.
-        "keepalive_interval_seconds": 900,
+        # gugu fork: Nous 体系停用（桌面登录已换成咕咕自有网关授权），默认不向 portal 保活刷新。
+        "keepalive_interval_seconds": 0,
         # anthropic_wire: which Portal route carries anthropic/* models. "chat" =
         # /v1/chat/completions (default for now); "native" = /v1/messages, the Anthropic
         # Messages wire (signed thinking passthrough, native cache_control scopes); "auto" =
@@ -2622,7 +2624,8 @@ DEFAULT_CONFIG = {
         # first use (inference on nous/welcome + connectors) and offers `/login` (terminal:
         # `hermes auth upgrade`) to sign in. false turns the free tier off entirely: nothing is set
         # up and nothing is used.
-        "guest": True,
+        # gugu fork: 桌面端登录体系已换成咕咕自有网关授权，不再自动铸 Nous 匿名账号。
+        "guest": False,
     },
     # Google Vertex AI (Gemini). Auth is OAuth2 from a service-account JSON or ADC, NOT an API key;
     # the credential path lives in .env (VERTEX_CREDENTIALS_PATH / GOOGLE_APPLICATION_CREDENTIALS).

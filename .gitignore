@@ -304,3 +304,6 @@ native/fts5_cjk/*.so
 
 # Disposable profile created by scripts/probe_active_session_exclusivity.py
 .probe-home/
+
+# gugu dev: 测试用 HERMES_HOME（不入库）
+.hermes-home/

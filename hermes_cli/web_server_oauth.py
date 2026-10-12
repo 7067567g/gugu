@@ -128,6 +128,17 @@ def _external_process_cli_command(provider_id: str, default: str) -> str:
     return default
 
 
+def _gugu_status() -> Dict[str, Any]:
+    """Status for the 咕咕 (gugu) card: the fork's own gateway login —— an OpenAI-compatible
+    custom endpoint (api-net) persisted by ``hermes_cli.gugu_service``, no OAuth token store."""
+    try:
+        from hermes_cli import gugu_service
+
+        return gugu_service.status()
+    except Exception as e:  # never take the dashboard down over a card probe
+        return {"logged_in": False, "source": None, "error": str(e)}
+
+
 # Hand-tuned OAuth/account cards: the bits not derivable from the unified provider catalog
 # (``flow``, ``status_fn``, ``cli_command``, display order). OVERRIDE BASE for
 # ``_build_oauth_catalog()``, which unions them with every accounts-tab provider so new
@@ -135,6 +146,10 @@ def _external_process_cli_command(provider_id: str, default: str) -> str:
 # the Anthropic credential-status card and the synthetic ``claude-code`` row.
 # ``flow``: ``device_code`` = show code + URL + poll; ``external`` = delegated to a terminal/CLI.
 _OAUTH_PROVIDER_CATALOG: tuple[Dict[str, Any], ...] = (
+    # 咕咕聚合网关登录（本项目定制）：start 由 web_routers/oauth 特判处理，授权页由
+    # web_routers/gugu_auth 自托管在 /gugu/auth/page，无外部 OAuth 依赖。
+    {"id": "gugu", "name": "咕咕聚合网关（网页登录）", "flow": "device_code",
+     "cli_command": "hermes model", "docs_url": "https://ai.joydove.cn", "status_fn": _gugu_status},
     # status_fn None → dispatched via auth.get_<provider>_auth_status.
     {"id": "nous", "name": "Nous Portal", "flow": "device_code", "cli_command": "hermes auth add nous",
      "docs_url": "https://portal.nousresearch.com", "status_fn": None},

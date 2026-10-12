@@ -8,6 +8,8 @@ import type { OAuthProvider } from '@/types/hermes'
 // only the featured order. Both Anthropic entries sit at the bottom: the API-key
 // path first, then the subscription OAuth path (only works with extra usage credits).
 const PROVIDER_ORDER: Record<string, number> = {
+  // gugu fork: 自有聚合网关登录排首位，桌面 onboarding 的首选登录方式。
+  gugu: -1,
   nous: 0,
   'openai-codex': 1,
   'minimax-oauth': 2,

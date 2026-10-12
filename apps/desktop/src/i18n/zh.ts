@@ -4014,7 +4014,7 @@ export const zh = defineLocale({
     chooseLater: '稍后再选择提供方',
     recommended: '推荐',
     connected: '已连接',
-    featuredPitch: '一个订阅，300+ 前沿模型 — 运行 Hermes 的推荐方式',
+    featuredPitch: '一个账号，文本/图像/视频全模态前沿模型 — 咕咕的推荐用法',
     fireworksPitch: '直接模型 API — Fireworks 托管的前沿模型',
     localModelsTitle: '本地运行模型',
     localModelsPitch: '无需账号——下载模型，在本机运行',

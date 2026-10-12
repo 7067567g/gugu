@@ -579,7 +579,8 @@ function Header() {
   )
 }
 
-export const FEATURED_ID = 'nous'
+// gugu fork: 桌面登录体系换成咕咕自有聚合网关授权（后端 OAuth 目录首位即 gugu 卡片）。
+export const FEATURED_ID = 'gugu'
 const SHOW_ALL_KEY = 'hermes-onboarding-show-all-v1'
 
 const readShowAll = () => {

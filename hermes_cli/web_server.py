@@ -962,6 +962,7 @@ from hermes_cli.web_routers import (  # noqa: E402
     chat_ws as _chat_ws_routes,
     chat_workspaces as _chat_workspaces_routes,
     dashboard_ui as _dashboard_ui_routes,
+    gugu_auth as _gugu_auth_routes,
 )
 
 app.include_router(_files_routes.router)
@@ -1002,6 +1003,8 @@ _mount_plugin_api_routes()
 from hermes_cli.dashboard_auth.routes import router as _dashboard_auth_router  # noqa: E402
 
 app.include_router(_dashboard_auth_router)
+# 咕咕登录授权（深 fork 定制）：自托管授权页 + complete 端点，须在 SPA 兜底路由之前。
+app.include_router(_gugu_auth_routes.router)
 mount_spa(app)
 
 

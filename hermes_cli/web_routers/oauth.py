@@ -545,6 +545,27 @@ async def _start_xai_device_code(profile: Optional[str]) -> Dict[str, Any]:
     )
 
 
+async def _start_gugu_device_code(profile: Optional[str], dashboard_base: str) -> Dict[str, Any]:
+    """gugu 网页授权登录（深 fork 定制，非上游功能）：device_code 形态的会话。
+
+    与真实 device-code 不同，无需后台 poller——授权页经 /api/gugu/auth/complete
+    验证并保存聚合网关 key 后，直接把本会话翻转为 approved；桌面的既有轮询即感知。
+    ``dashboard_base`` 是 dashboard 自身的 http://127.0.0.1:port 前缀（授权页自托管）。
+    """
+    from hermes_cli import gugu_service
+
+    sid, sess = _new_oauth_session("gugu", "device_code", profile=profile)
+    verification_url = gugu_service.page_verification_url(dashboard_base, sid)
+    with _oauth_sessions_lock:
+        sess.update({"expires_at": gugu_service.session_expires_at(), "interval": 2,
+                     "verification_url": verification_url})
+    return {
+        "session_id": sid, "flow": "device_code", "user_code": sid[:8],
+        "verification_url": verification_url,
+        "expires_in": gugu_service.SESSION_TTL_SECONDS, "poll_interval": 2,
+    }
+
+
 _DEVICE_CODE_STARTERS = {
     "nous": _start_nous_device_code, "openai-codex": _start_codex_device_code,
     "minimax-oauth": _start_minimax_device_code, "xai-oauth": _start_xai_device_code,
@@ -729,6 +750,9 @@ async def start_oauth_login(provider_id: str, request: Request, profile: Optiona
     if catalog_entry["flow"] == "external":
         raise HTTPException(400, f"{provider_id} uses an external CLI; run `{catalog_entry['cli_command']}` manually")
     try:
+        if provider_id == "gugu":
+            # gugu 授权页自托管在 dashboard 本机，start 需要 request 才能拼出绝对 URL。
+            return await _start_gugu_device_code(profile, str(request.base_url).rstrip("/"))
         if catalog_entry["flow"] == "device_code":
             return await _start_device_code_flow(provider_id, profile=profile)
     except HTTPException:
