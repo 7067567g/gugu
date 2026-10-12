@@ -307,3 +307,6 @@ native/fts5_cjk/*.so
 
 # gugu dev: 测试用 HERMES_HOME（不入库）
 .hermes-home/
+
+# 内测便携包输出（不入库）
+apps/desktop/release-portable/
