@@ -22,13 +22,13 @@ export function BrandClose({ ref }: BrandCloseProps) {
             textShadow: '0 2px 24px rgba(0,0,0,0.45)'
           }}
         >
-          Hermes Agent
+          咕咕 GUGU
         </h1>
         <p
-          className="text-[2vmin] uppercase tracking-[0.42em] text-white/50"
+          className="text-[2vmin] tracking-[0.42em] text-white/50"
           style={{ fontFamily: "'Collapse', sans-serif" }}
         >
-          Your agent, everywhere
+          你的全能 AI 助手
         </p>
       </div>
     </div>
