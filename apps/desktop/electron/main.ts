@@ -2595,8 +2595,8 @@ async function waitForUpdateToFinish() {
       rememberLog(`[updates] detached update finished with manual action (branch ${result.branch}): ${result.message}`)
       dialog.showMessageBox({
         type: 'warning',
-        title: 'Hermes update',
-        message: 'The update finished, but needs one more step',
+        title: '咕咕更新',
+        message: '更新已完成，但还需要一步操作',
         detail: result.message
       })
     } else if (result && result.ok) {
@@ -2611,8 +2611,8 @@ async function waitForUpdateToFinish() {
       void dialog
         .showMessageBox({
           type: 'error',
-          title: 'Hermes update',
-          message: "Hermes couldn't finish updating",
+          title: '咕咕更新',
+          message: '咕咕未能完成更新',
           detail:
             "You're still on the previous version and can keep using it. Try the update again, or open the update log to report the problem.\n\n" +
             `Details: ${result.message}`,

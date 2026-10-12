@@ -1,5 +1,5 @@
 {
-  "name": "hermes",
+  "name": "gugu",
   "productName": "Hermes",
   "private": true,
   "version": "0.17.6",
@@ -194,18 +194,18 @@
   },
   "build": {
     "electronVersion": "40.10.2",
-    "appId": "com.nousresearch.hermes",
-    "productName": "Hermes",
-    "executableName": "Hermes",
+    "appId": "com.joydove.gugu.desktop",
+    "productName": "咕咕",
+    "executableName": "gugu",
     "protocols": [
       {
-        "name": "Hermes Protocol",
+        "name": "gugu Protocol",
         "schemes": [
-          "hermes"
+          "gugu"
         ]
       }
     ],
-    "artifactName": "Hermes-${version}-${os}-${arch}.${ext}",
+    "artifactName": "gugu-${version}-${os}-${arch}.${ext}",
     "icon": "assets/icon",
     "directories": {
       "output": "release"
@@ -264,7 +264,7 @@
       ]
     },
     "dmg": {
-      "title": "Install Hermes",
+      "title": "Install 咕咕",
       "backgroundColor": "#f5f5f7",
       "iconSize": 96,
       "window": {
@@ -286,7 +286,7 @@
       ]
     },
     "win": {
-      "legalTrademarks": "Hermes",
+      "legalTrademarks": "咕咕",
       "target": [
         "nsis",
         "msi"
@@ -307,8 +307,8 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
-      "shortcutName": "Hermes",
-      "uninstallDisplayName": "Hermes",
+      "shortcutName": "咕咕",
+      "uninstallDisplayName": "咕咕",
       "warningsAsErrors": false
     }
   }
