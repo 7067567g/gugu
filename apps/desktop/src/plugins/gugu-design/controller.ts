@@ -58,6 +58,8 @@ class DesignController {
   private saveTimer: ReturnType<typeof setTimeout> | null = null
   private saving = false
   private dirty = false
+  // 幂等保存：同一批未落盘编辑共用一个 operation_id，网络重试命中 Host 重放而非 409。
+  private pendingOpId: string | null = null
 
   get view(): DesignView {
     return $designView.get()
@@ -138,15 +140,17 @@ class DesignController {
       return
     }
 
+    this.pendingOpId ??= `save-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
     this.saving = true
     this.dirty = false
     this.publish({ busy: true })
 
     try {
       const res = await needRest<{ document: CanvasDocument }>('/projects/' + pid + '/document', {
-        body: { document: doc, expected_revision: savedRevision ?? doc.revision - 1 },
+        body: { document: doc, expected_revision: savedRevision ?? doc.revision - 1, operation_id: this.pendingOpId },
         method: 'PUT'
       })
+      this.pendingOpId = null
       this.publish({ busy: false, document: res.document, savedRevision: res.document.revision })
     } catch (error) {
       this.publish({ busy: false, error: '保存冲突或失败：' + String(error) })
