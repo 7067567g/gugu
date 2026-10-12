@@ -1,0 +1,8 @@
+{
+  "name": "gugu-design",
+  "label": "咕咕设计",
+  "description": "无限画布 AI 创作工作台：文生图/图生图、文/图生视频异步任务、素材落画布、本地工程持久化（对标万镜一刻画布）",
+  "icon": "Layout",
+  "version": "0.1.0",
+  "api": "plugin_api.py"
+}
