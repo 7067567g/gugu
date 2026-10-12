@@ -4410,6 +4410,10 @@ export const en: Translations = {
     windowControls: 'Window controls',
     paneControls: 'Pane controls',
     appControls: 'App controls',
+    // gugu 三模式切换器（docs/02-三模式架构.md）
+    modeWork: 'Work',
+    modeDesign: 'Design',
+    modeIde: 'Code',
     modelMenu: {
       search: 'Search models',
       noModels: 'No models found',

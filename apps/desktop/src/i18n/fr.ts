@@ -4910,6 +4910,9 @@ export const fr = defineLocale({
     windowControls: 'Contrôles de fenêtre',
     paneControls: 'Contrôles de panneau',
     appControls: "Contrôles d'application",
+    modeWork: 'Travail',
+    modeDesign: 'Conception',
+    modeIde: 'Code',
     modelMenu: {
       search: 'Rechercher des modèles',
       noModels: 'Aucun modèle trouvé',

@@ -83,10 +83,38 @@ const QUAD_TREE = split(
   [3, 1]
 )
 
+// 咕咕三模式初始布局（docs/02-三模式架构.md §4.4）。Design：会话窄栏 + 画布主区
+// （万镜一刻形态）；IDE：会话 + 编辑器主区 + 文件右栏。工具面板在两个模式下
+// RESTING——模式要的是"少即是多"的初始面，⌘J/⌘G 仍可唤起。
+const GUGU_DESIGN_TREE = split(
+  'row',
+  [group(['sessions'], { id: 'gugu-design-sessions' }), group(['workspace'], { id: 'gugu-design-main' })],
+  [1, 4],
+  'gugu-design-root'
+)
+
+const GUGU_IDE_TREE = split(
+  'row',
+  [
+    group(['sessions'], { id: 'gugu-ide-sessions' }),
+    group(['workspace'], { id: 'gugu-ide-main' }),
+    split(
+      'column',
+      [group(['files'], { id: 'gugu-ide-files' }), group(['terminal'], { id: 'gugu-ide-terminal' })],
+      [2, 1],
+      'gugu-ide-right'
+    )
+  ],
+  [1, 3.4, 1.2],
+  'gugu-ide-root'
+)
+
 export function registerLayoutPresets() {
   // Simple is always the Basic arrangement; its one choice is which side the
   // sidebar sits. The decks are Advanced — arranging tooling is the point.
   return registerBundledPresets([
+    { id: 'gugu.layout.design', title: '咕咕 · 设计', order: 90, tree: GUGU_DESIGN_TREE, resting: ['terminal', 'files', 'review'], tier: 'advanced' },
+    { id: 'gugu.layout.ide', title: '咕咕 · 编程', order: 91, tree: GUGU_IDE_TREE, resting: ['terminal'], tier: 'advanced' },
     { id: 'sidebar-left', title: 'Sidebar left', order: 0, tree: BASIC_TREE, resting: BASIC_RESTING, tier: 'simple' },
     {
       id: 'sidebar-right',

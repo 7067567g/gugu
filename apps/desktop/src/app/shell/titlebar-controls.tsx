@@ -4,6 +4,7 @@ import { type ComponentProps, type MouseEvent, type ReactNode, useEffect, useSta
 import { useLocation, useNavigate } from 'react-router'
 
 import { hudTargetSessionId } from '@/app/hud/handoff'
+import { ModeSwitcher } from '@/components/mode-switcher'
 import { toggleLayoutEditMode } from '@/components/pane-shell/edit-mode'
 import { resetLayoutTree } from '@/components/pane-shell/tree/store'
 import { Badge } from '@/components/ui/badge'
@@ -319,6 +320,8 @@ export function TitlebarControls({ leftTools = [], tools = [], onOpenSettings }:
         {visibleLeftTools.map(tool => (
           <TitlebarToolButton key={tool.id} navigate={navigate} tool={tool} />
         ))}
+        {/* gugu 三模式切换器，紧贴侧栏收起按钮（docs/02-三模式架构.md §4.2） */}
+        <ModeSwitcher t={t.shell} />
         <Slot area="titleBar.left" />
         <Slot area="titleBar.center" />
       </div>

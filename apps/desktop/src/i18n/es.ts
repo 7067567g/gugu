@@ -4890,6 +4890,9 @@ export const es = defineLocale({
     windowControls: 'Controles de ventana',
     paneControls: 'Controles de panel',
     appControls: 'Controles de app',
+    modeWork: 'Trabajo',
+    modeDesign: 'Diseño',
+    modeIde: 'Código',
     modelMenu: {
       search: 'Buscar modelos',
       noModels: 'No se encontraron modelos',

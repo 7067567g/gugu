@@ -4898,6 +4898,9 @@ export const de = defineLocale({
     windowControls: 'Fenster-Bedienelemente',
     paneControls: 'Panele-Bedienelemente',
     appControls: 'App-Bedienelemente',
+    modeWork: 'Arbeit',
+    modeDesign: 'Design',
+    modeIde: 'Code',
     modelMenu: {
       search: 'Modelle durchsuchen',
       noModels: 'Keine Modelle gefunden',

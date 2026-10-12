@@ -4156,6 +4156,10 @@ export const zh = defineLocale({
     windowControls: '窗口控件',
     paneControls: '面板控件',
     appControls: '应用控件',
+    // gugu 三模式切换器（docs/02-三模式架构.md）
+    modeWork: '工作',
+    modeDesign: '设计',
+    modeIde: '编程',
     modelMenu: {
       search: '搜索模型',
       noModels: '未找到模型',

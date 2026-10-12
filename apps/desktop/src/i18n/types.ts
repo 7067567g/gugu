@@ -3686,6 +3686,9 @@ export interface Translations {
     windowControls: string
     paneControls: string
     appControls: string
+    modeWork: string
+    modeDesign: string
+    modeIde: string
     modelMenu: {
       search: string
       noModels: string
