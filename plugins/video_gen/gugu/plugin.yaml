@@ -1,0 +1,5 @@
+name: gugu
+version: 1.0.0
+description: "咕咕聚合网关视频生成（百炼 wan3.0/happyhorse 等）：OpenAI 兼容 /v1/videos 异步任务，目录来自网关 /v1/models?modality=video。凭据复用桌面咕咕登录的网关配置。"
+author: JoyDove
+kind: backend

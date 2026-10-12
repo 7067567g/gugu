@@ -2501,8 +2501,17 @@ def probe_api_models(
             continue
         if _neg_key is not None:
             _probe_neg_cache.pop(_neg_key, None)
+        # 模态收口：聚合网关（如 api-net）的 /models 混返 chat/embedding/image/video/tts…，
+        # 条目带 modality 字段时只保留聊天候选（无该字段的端点保持原行为，标准 OpenAI 兼容）。
+        _chat_mods = {"chat", "text", "llm", ""}
+        _kept = []
+        for m in data.get("data", []):
+            mod = str(m.get("modality") or "").strip().lower()
+            if mod not in _chat_mods:
+                continue
+            _kept.append(m.get("id", ""))
         return _probe_result(
-            [m.get("id", "") for m in data.get("data", [])], url, candidate_base.rstrip("/"),
+            _kept, url, candidate_base.rstrip("/"),
             alternate_base if alternate_base != candidate_base else normalized, is_fallback)
 
     if _neg_key is not None and not reachable:

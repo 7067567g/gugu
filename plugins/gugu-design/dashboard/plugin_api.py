@@ -339,6 +339,27 @@ async def gateway_status():
     return {"configured": True, "base_url": base_url}
 
 
+@router.get("/gateway-models")
+async def gateway_models(modality: str = "image"):
+    """代理网关按模态收口的模型清单（Design 面板模型下拉用）。"""
+    if modality not in ("image", "video"):
+        raise HTTPException(status_code=400, detail="modality 必须是 image 或 video")
+    try:
+        base_url, api_key = _gateway()
+    except HTTPException:
+        return {"models": []}
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            resp = client.get(f"{base_url}/models", params={"modality": modality},
+                              headers={"Authorization": f"Bearer {api_key}"})
+            if resp.status_code != 200:
+                return {"models": []}
+            return {"models": [{"id": m.get("id", ""), "label": m.get("id", "")}
+                               for m in resp.json().get("data", []) if m.get("id")]}
+    except httpx.HTTPError:
+        return {"models": []}
+
+
 @router.get("/projects")
 async def list_projects():
     root = _designs_root()

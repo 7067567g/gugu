@@ -75,7 +75,9 @@ def _model_endpoint_state() -> Tuple[bool, str, Optional[str]]:
 
     _cfg, model = _load_config_model_section()
     base_url = str(model.get("base_url") or "").rstrip("/")
-    if str(model.get("provider") or "") != "custom" or not base_url:
+    provider = str(model.get("provider") or "")
+    # 裸 "custom" 与 custom:<名称> slug（persist 写 slug）都算咕咕端点。
+    if not (provider == "custom" or provider.startswith("custom:")) or not base_url:
         return False, "", None
     key_ref = str(model.get("api_key") or "")
     if key_ref.startswith("${") and key_ref.endswith("}"):
@@ -83,6 +85,22 @@ def _model_endpoint_state() -> Tuple[bool, str, Optional[str]]:
     else:
         key = get_env_value(_env_name_for(base_url)) or get_env_value("OPENAI_API_KEY")
     return True, base_url, (key[-6:] if key else None)
+
+
+def gateway_credentials() -> tuple:
+    """(base_url, api_key) of the logged-in gugu gateway; ("", "") when not configured.
+    Shared by the gugu video_gen plugin and the gugu-design backend plugin."""
+    from hermes_cli.config import get_env_value
+    from hermes_cli.model_setup_flows_common import _load_config_model_section
+
+    _cfg, model = _load_config_model_section()
+    base_url = str(model.get("base_url") or "").rstrip("/")
+    key_ref = str(model.get("api_key") or "")
+    if key_ref.startswith("${") and key_ref.endswith("}"):
+        key = get_env_value(key_ref[2:-1]) or ""
+    else:
+        key = key_ref or get_env_value(_env_name_for(base_url)) or get_env_value("OPENAI_API_KEY") or ""
+    return base_url, key
 
 
 def status() -> Dict[str, Any]:
@@ -161,7 +179,11 @@ def persist(api_key: str, base_url: str, model_name: str) -> Dict[str, Any]:
 
     _save_model_choice(model_name)
     cfg, model = _load_config_model_section()
-    model["provider"] = "custom"
+    # 用 custom_providers 条目的 slug（custom:咕咕聚合网关）而非裸 "custom"：
+    # 与 picker 行 slug 一致，避免设置页合成 "custom" 幽灵回退行。
+    from hermes_cli.providers import custom_provider_slug
+
+    model["provider"] = custom_provider_slug(GUGU_PROVIDER_NAME)
     model["base_url"] = base_url
     # 旧端点的 key_env 指针会盖过下面写入的凭据（与 custom 向导同样的清理）。
     model.pop("key_env", None)

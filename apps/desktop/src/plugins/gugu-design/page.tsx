@@ -11,6 +11,7 @@ import {
   uploadAsset,
   useCreateProject,
   useDeleteProject,
+  useGatewayModels,
   useGatewayStatus,
   useJobs,
   useProjects,
@@ -84,6 +85,8 @@ function GeneratePanel({ pid }: { pid: string }) {
   const [duration, setDuration] = useState(5)
   const submit = useSubmitJob(pid)
   const gw = useGatewayStatus()
+  const models = useGatewayModels(kind)
+  const modelOptions = models.data?.models ?? []
 
   const send = () => {
     if (!prompt.trim()) {
@@ -137,7 +140,14 @@ function GeneratePanel({ pid }: { pid: string }) {
         placeholder={t('promptPlaceholder')}
         value={prompt}
       />
-      <Input onChange={e => setModel(e.target.value)} placeholder={t('modelPlaceholder')} value={model} />
+      <select
+        className="w-full rounded-md border border-(--ui-stroke-secondary) bg-transparent px-2 py-1.5 text-sm"
+        onChange={e => setModel(e.target.value)}
+        value={model}
+      >
+        <option value="">{t('modelDefaultOption')}</option>
+        {modelOptions.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+      </select>
       {kind === 'image'
         ? (
             <select

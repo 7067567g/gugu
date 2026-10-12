@@ -84,6 +84,15 @@ export function useGatewayStatus() {
   })
 }
 
+/** 网关按模态收口的模型清单（生成面板下拉）。 */
+export function useGatewayModels(modality: 'image' | 'video') {
+  return useQuery({
+    queryFn: () => need<{ models: Array<{ id: string; label: string }> }>(`/gateway-models?modality=${modality}`),
+    queryKey: ['gugu-design', 'gateway-models', modality],
+    staleTime: 60_000
+  })
+}
+
 // ---- mutations --------------------------------------------------------------
 
 export function useCreateProject(onCreated: (pid: string) => void) {
