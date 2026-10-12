@@ -82,8 +82,29 @@
 - **持久化**：`<project>/.gugu-design/`（project.json + assets/ + versions/）
 
 ## 4. 实施切分（第 4 步执行顺序）
-1. 4-B 骨架：controller + 画布渲染 + 桌面路由接入 + 本地持久化（无生成）
-2. 4-C1 图像链路：文生图/图生图 + 任务卡 + 素材落画布
-3. 4-C2 视频链路：异步任务卡（含首尾帧/参考图）+ 产物落盘
-4. 4-C3 故事板：分镜生成 + 逐镜任务 + 本地拼接
-5. 4-C4 交互精修：引导式意图 + 上下文工具（按供货点亮）+ 批注回会话
+1. 4-B 骨架：controller + 画布渲染 + 桌面路由接入 + 本地持久化（无生成）✅ 已完成
+2. 4-C1 图像链路：文生图/图生图 + 任务卡 + 素材落画布 ✅ 骨架完成（真实渠道已打通）
+3. 4-C2 视频链路：异步任务卡（含首尾帧/参考图）+ 产物落盘 ◐ 后端完成，UI 待 M2
+4. 4-C3 故事板：分镜生成 + 逐镜任务 + 本地拼接（→ 新计划 M5）
+5. 4-C4 交互精修：引导式意图 + 上下文工具（按供货点亮）+ 批注回会话（→ 新计划 M3/M4）
+
+## 5. dsh-design-mode 移植映射表（M2 执行依据）
+
+移植源：`refs/dsh-design-mode`（MIT）。只取源码逻辑，**不引入 cordis 依赖**——
+Remote 调用改 `ctx.rest`（pluginRest），事件改 `pluginSocket('/events')`，
+observable 改 nanostores。
+
+| dsh-design-mode 文件 | 行数 | → gugu 目标位置 | 改造要点 |
+|---|---|---|---|
+| packages/design/design-mode/src/types.ts | ~180 | src/plugins/gugu-design/types.ts | 原样（纯类型，去 Branded）|
+| packages/client/ui-design-mode/src/client/DesignCanvas.tsx | 504 | src/plugins/gugu-design/canvas.tsx | 替换现有玩具版；remote→rest |
+| packages/client/ui-design-mode/src/client/controller.ts | 1125 | src/plugins/gugu-design/controller.ts | HostObservable→nanostores；Remote→pluginRest；保留 undo/redo 栈与串行队列 |
+| packages/client/ui-design-mode/src/client/DesignSurface.tsx | 1166 | src/plugins/gugu-design/surface.tsx | slot 注入→workspace.pageHeader + panes 贡献 |
+| packages/client/ui-design-mode/src/client/activation.ts | 172 | src/plugins/gugu-design/activation.ts | modeEnabled 挂 document |
+| packages/client/ui-design-mode/src/client/canvas-export.ts | 344 | src/plugins/gugu-design/canvas-export.ts | 原样移植（PNG 导出）|
+| packages/design/design-mode/src/storage.ts | ~400 | plugins/gugu-design/dashboard/gugu_storage.py（新）| Python 逐条平移：原子写/journal/magic/symlink 防护 |
+| packages/design/design-mode/src/index.ts（服务部分）| ~900 | plugins/gugu-design/dashboard/plugin_api.py | 补串行队列/幂等/崩溃恢复/WS 推送 |
+| packages/design/design-mode/src/providers.ts | ~200 | plugins/gugu-design/dashboard/gugu_providers.py | 改为 api-net 网关（去 FAL/OpenAI 直连）|
+| ask_user intent 协议（interaction/user-questions + tool-ask-user）| — | M3：Python 宿主 intentProgress + ask_user 工具扩展 | 服务端硬校验（协议强制非提示词自律）|
+
+架构总纲见 `docs/02-三模式架构.md`（模式切换、布局预设、后端门）。
