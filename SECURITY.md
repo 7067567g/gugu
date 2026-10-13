@@ -2,7 +2,7 @@
 
 发现咕咕的安全问题（凭据泄露路径、命令注入、授权绕过、恶意插件面等），请**不要**开公开 issue。
 
-- 报告渠道：向 <security@joydove.cn> 发送邮件（标题含 `gugu security`），
+- 报告渠道：向 <joydove@163.com> 发送邮件（标题含 `gugu security`），
   或通过本仓库 GitHub 的 Security Advisories 私密报告
 - 我们承诺：48 小时内响应确认；修复发布后在 advisories/致谢中公开（可匿名）
 - 范围：本仓库代码与桌面端；聚合网关（乐鸽平台）的问题请同时报告网关方
