@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python-compile:
+    name: Python compile smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: compileall
+        run: |
+          python -m compileall -q \
+            hermes_cli agent tools plugins \
+            hermes_constants.py model_tools.py toolsets.py run_agent.py
+
+  desktop-typecheck:
+    name: Desktop typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install (lockfile; legacy peers for react-konva)
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - name: typecheck
+        working-directory: apps/desktop
+        run: npm run typecheck

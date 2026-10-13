@@ -310,3 +310,14 @@ native/fts5_cjk/*.so
 
 # 内测便携包输出（不入库）
 apps/desktop/release-portable/
+
+# 内部文档（对标调研、商务向材料）——公开仓库只放 docs/
+.docs/
+
+# 各贡献者本地 Agent/IDE 工具目录（.claude/.cursor/.gemini/...）一律不入库。
+# 注意：`.*/` 会静默忽略所有「新的」点目录文件（git status 也不显示）。
+# 确需入库的点目录：在下面加 `!` 白名单（必须排在 `.*/` 之后，勿重排顺序），
+# 或对该文件 `git add -f`。
+.*/
+!.github/
+!.devcontainer/
