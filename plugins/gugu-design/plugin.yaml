@@ -1,0 +1,9 @@
+name: gugu-design
+version: 0.1.0
+description: "咕咕设计模式 Agent 面：design_generate 生成工具（引导式意图硬校验，协议移植 dsh-design-mode）+ post_tool_call 观察 clarify 轮次。生成经聚合网关，与桌面 Design 画布同源。"
+author: JoyDove
+kind: standalone
+provides_tools:
+  - design_generate
+provides_hooks:
+  - post_tool_call

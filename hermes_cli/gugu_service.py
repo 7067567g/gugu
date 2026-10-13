@@ -193,7 +193,27 @@ def persist(api_key: str, base_url: str, model_name: str) -> Dict[str, Any]:
     _commit_model_config(cfg)
 
     _save_custom_provider(base_url, api_key="", model=model_name, name=GUGU_PROVIDER_NAME, key_env=key_env)
+    _enable_design_plugin()
     return {"model": model_name, "base_url": base_url}
+
+
+def _enable_design_plugin() -> None:
+    """登录成功后自动启用 gugu-design Agent 插件（design_generate 工具 + 意图 hook）。
+
+    plugins.enabled 是 Hermes 插件信任门（opt-in，见 hermes_cli/plugins.py:1371）；
+    咕咕把「登录网关」作为启用时机——没有网关凭据时 design_generate 的 check_fn
+    本来也不会出工具。幂等：已在列表里则不动。
+    """
+    from hermes_cli.config import load_config, save_config
+
+    cfg = load_config()
+    plugins = cfg.setdefault("plugins", {})
+    if not isinstance(plugins, dict):
+        plugins = cfg["plugins"] = {}
+    enabled = plugins.setdefault("enabled", [])
+    if isinstance(enabled, list) and "gugu-design" not in enabled:
+        enabled.append("gugu-design")
+        save_config(cfg)
 
 
 def session_expires_at() -> float:
