@@ -1,0 +1,45 @@
+name: 🐛 问题反馈
+description: 报告一个可复现的 bug
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请尽量给出可复现的步骤。安全类问题请走 [SECURITY.md](../../SECURITY.md)，不要开公开 issue。
+  - type: dropdown
+    id: mode
+    attributes:
+      label: 涉及模式
+      options: [工作 Work, 设计 Design, 编程 Code, 桌面壳/启动, 内核/CLI, 其他]
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开咕咕设计，新建工程
+        2. 输入 prompt 点「生成」
+        3. 任务停在 queued，无报错
+      value: "1. \n2. \n3. "
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志/截图
+      description: 终端输出、~/.hermes/logs/ 相关行、界面截图（注意脱敏 API key）
+      render: shell
+  - type: input
+    id: env
+    attributes:
+      label: 环境
+      placeholder: "OS: Windows 11 / Node 24.11 / Python 3.11 / commit 或版本号"
+    validations:
+      required: true
