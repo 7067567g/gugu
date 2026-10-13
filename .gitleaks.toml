@@ -1,0 +1,20 @@
+# gitleaks 配置：继承默认规则，白名单测试夹具与示例文件。
+# 本仓库扫描只看新增提交（见 .github/workflows/secret-scan.yml），
+# 全量历史含上游 fork 基线的测试样例，不在扫描范围。
+[extend]
+useDefault = true
+
+[allowlist]
+description = "test fixtures, examples and docs placeholders"
+paths = [
+  '''tests/''',
+  '''evals/''',
+  '''website/''',
+  '''docs/''',
+  '''\.env\.example''',
+  '''\.envrc''',
+  '''apps/desktop/src/.*\.test\.tsx?$''',
+]
+regexes = [
+  '''(?i)(example|placeholder|dummy|your[-_]?key|sk-xxx|changeme)''',
+]
