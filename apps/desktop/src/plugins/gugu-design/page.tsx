@@ -1,11 +1,7 @@
-/** 咕咕设计页：工程列表 → 无限画布 + 生成面板（图/视频任务）。 */
+/** 咕咕设计页：工程列表 → 无限画布（工具栏 + 生成面板 + 任务列表）。 */
 import { Button, Codicon, Input, cn, host, useValue } from '@hermes/plugin-sdk'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import {
-  designController,
-  $designView
-} from './controller'
 import {
   ingestCompletedJobs,
   uploadAsset,
@@ -17,8 +13,10 @@ import {
   useProjects,
   useSubmitJob
 } from './api'
-import { DesignCanvas } from './canvas'
+import { DesignCanvas, type PendingCommentAnchor } from './canvas'
+import { $designView, designController } from './controller'
 import { t } from './i18n'
+import type { CanvasTool } from './types'
 
 function ProjectPicker({ onOpen }: { onOpen: (pid: string) => void }) {
   const { data, isLoading } = useProjects()
@@ -218,10 +216,37 @@ function JobList({ pid }: { pid: string }) {
   )
 }
 
+/** 画布工具组（select/hand/注释锚点）。注释→会话送审流程在 M4 接入。 */
+const TOOLS: Array<{ icon: 'edit' | 'grab' | 'comment' | 'comment-discussion'; id: CanvasTool; key: string }> = [
+  { icon: 'edit', id: 'select', key: 'toolSelect' },
+  { icon: 'grab', id: 'hand', key: 'toolHand' },
+  { icon: 'comment', id: 'point-comment', key: 'toolPoint' },
+  { icon: 'comment-discussion', id: 'rect-comment', key: 'toolRect' }
+]
+
 function Workspace({ onBack }: { onBack: () => void }) {
   const view = useValue($designView)
   const fileRef = useRef<HTMLInputElement>(null)
+  const canvasBoxRef = useRef<HTMLDivElement>(null)
+  const [box, setBox] = useState({ h: 600, w: 900 })
   const pid = view.pid ?? ''
+  const doc = view.document
+  const hasSelection = view.selectedIds.length > 0
+
+  // 容器尺寸：canvas 需要显式宽高（dsh 同款，由 Surface 测量传入）。
+  useEffect(() => {
+    const el = canvasBoxRef.current
+
+    if (!el) {
+      return
+    }
+
+    const ro = new ResizeObserver(() => setBox({ h: el.clientHeight, w: el.clientWidth }))
+
+    ro.observe(el)
+
+    return () => ro.disconnect()
+  }, [view.status])
 
   const upload = useCallback(async (files: FileList | null) => {
     if (!files) {
@@ -231,64 +256,76 @@ function Workspace({ onBack }: { onBack: () => void }) {
     for (const file of Array.from(files)) {
       try {
         const asset = await uploadAsset(pid, file)
-        const vp = view.document?.viewport ?? { scale: 1, x: 0, y: 0 }
-        designController.addElement(asset.id, (window.innerWidth / 2 - vp.x) / vp.scale, (window.innerHeight / 2 - vp.y) / vp.scale)
+        designController.addElement(asset.id)
       } catch (error) {
         window.alert(String(error))
       }
     }
-  }, [pid, view.document?.viewport])
+  }, [pid])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
-        e.preventDefault()
-        designController.undo()
-      } else if ((e.metaKey || e.ctrlKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
-        e.preventDefault()
-        designController.redo()
-      } else if ((e.key === 'Delete' || e.key === 'Backspace') && view.selectedIds.length > 0) {
-        const tag = (e.target as HTMLElement).tagName
-
-        if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
-          e.preventDefault()
-          designController.removeSelected()
-        }
-      }
+  const onComment = useCallback((anchor: PendingCommentAnchor) => {
+    // M2b：锚点先落文档（draft）；送会话处理在 M4 接 composer。
+    if (anchor.kind === 'point') {
+      designController.addPointComment(anchor.versionId, anchor.x, anchor.y)
+    } else {
+      designController.addRectComment(anchor.versionId, anchor.x, anchor.y, anchor.width ?? 0, anchor.height ?? 0)
     }
+    designController.setTool('select')
+  }, [])
 
-    window.addEventListener('keydown', onKey)
-
-    return () => window.removeEventListener('keydown', onKey)
-  }, [view.selectedIds])
-
-  if (view.status !== 'ready' || !view.document) {
+  if (view.status !== 'ready' || !doc) {
     return <div className="grid place-items-center text-sm opacity-60">{view.error ?? t('loading')}</div>
   }
 
   return (
     <div className="flex h-full min-h-0">
       <div className="relative min-w-0 flex-1">
-        <DesignCanvas pid={pid} selectedIds={view.selectedIds} viewport={view.document.viewport} />
-        {/* 顶部悬浮工具条 */}
+        <div ref={canvasBoxRef} className="absolute inset-0 overflow-hidden">
+          <DesignCanvas
+            document={doc}
+            height={box.h}
+            onComment={onComment}
+            selectedIds={view.selectedIds}
+            tool={view.tool}
+            width={box.w}
+          />
+        </div>
+        {/* 顶部悬浮工具条：导航 + 撤销 + 工具组 + 元素操作 */}
         <div className="absolute left-3 top-3 z-10 flex items-center gap-1 rounded-xl border border-(--ui-stroke-secondary) bg-(--ui-chat-bubble-background)/90 px-2 py-1.5 shadow-lg backdrop-blur">
           <Button onClick={onBack} size="icon-sm" variant="ghost"><Codicon name="chevron-left" /></Button>
-          <span className="max-w-40 truncate px-1 text-sm font-medium">{view.document.name}</span>
-          <span className="px-1 text-[11px] opacity-50">
-            {view.busy ? t('saving') : t('saved')}
-          </span>
-          <Button onClick={() => designController.undo()} size="icon-sm" variant="ghost" disabled={!designController.canUndo}><Codicon name="discard" /></Button>
-          <Button onClick={() => designController.redo()} size="icon-sm" variant="ghost" disabled={!designController.canRedo}><Codicon name="go-to-start" /></Button>
-          <Button onClick={() => fileRef.current?.click()} size="icon-sm" variant="ghost"><Codicon name="add" /></Button>
-          <Button
-            disabled={view.selectedIds.length === 0}
-            onClick={() => designController.removeSelected()}
-            size="icon-sm"
-            variant="ghost"
-          >
+          <span className="max-w-32 truncate px-1 text-sm font-medium">{doc.name}</span>
+          <span className="px-1 text-[11px] opacity-50">{view.busy ? t('saving') : t('saved')}</span>
+          <span className="mx-1 h-4 w-px bg-(--ui-stroke-secondary)" />
+          <Button disabled={!designController.canUndo} onClick={() => designController.undo()} size="icon-sm" variant="ghost"><Codicon name="discard" /></Button>
+          <Button disabled={!designController.canRedo} onClick={() => designController.redo()} size="icon-sm" variant="ghost"><Codicon name="go-to-start" /></Button>
+          <span className="mx-1 h-4 w-px bg-(--ui-stroke-secondary)" />
+          {TOOLS.map(tool => (
+            <Button
+              className={cn(view.tool === tool.id && 'bg-primary/15 text-primary')}
+              key={tool.id}
+              onClick={() => designController.setTool(tool.id)}
+              size="icon-sm"
+              title={t(tool.key)}
+              variant="ghost"
+            >
+              <Codicon name={tool.icon} />
+            </Button>
+          ))}
+          <span className="mx-1 h-4 w-px bg-(--ui-stroke-secondary)" />
+          <Button disabled={!hasSelection} onClick={() => designController.toggleSelectedLock()} size="icon-sm" variant="ghost" title={t('toolLock')}>
+            <Codicon name={hasSelection && doc.elements[view.selectedIds[0]]?.locked ? 'lock' : 'lock-small'} />
+          </Button>
+          <Button disabled={!hasSelection} onClick={() => designController.bringSelectedForward()} size="icon-sm" variant="ghost" title={t('toolForward')}>
+            <Codicon name="arrow-up" />
+          </Button>
+          <Button disabled={Object.keys(doc.elements).length === 0} onClick={() => designController.fitToView(box.w, box.h)} size="icon-sm" variant="ghost" title={t('toolFit')}>
+            <Codicon name="zoom-in" />
+          </Button>
+          <Button onClick={() => fileRef.current?.click()} size="icon-sm" variant="ghost" title={t('toolUpload')}><Codicon name="add" /></Button>
+          <Button disabled={!hasSelection} onClick={() => designController.hideSelected()} size="icon-sm" variant="ghost" title={t('toolHide')}>
             <Codicon name="trash" />
           </Button>
-          <span className="px-1 text-xs tabular-nums opacity-60">{Math.round((view.document.viewport.scale ?? 1) * 100)}%</span>
+          <span className="px-1 text-xs tabular-nums opacity-60">{Math.round((doc.viewport.scale ?? 1) * 100)}%</span>
           <input
             accept="image/*,video/mp4"
             className="hidden"
@@ -298,6 +335,11 @@ function Workspace({ onBack }: { onBack: () => void }) {
             type="file"
           />
         </div>
+        {view.tool !== 'select' && view.tool !== 'hand' && (
+          <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-primary/90 px-3 py-1 text-xs text-white shadow-lg">
+            {t(view.tool === 'point-comment' ? 'hintPoint' : 'hintRect')}
+          </div>
+        )}
         {view.error && (
           <button
             className="absolute bottom-3 left-3 z-10 rounded-lg bg-red-500/90 px-3 py-1.5 text-xs text-white"

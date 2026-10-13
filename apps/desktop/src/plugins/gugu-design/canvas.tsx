@@ -1,367 +1,470 @@
 /**
- * 无限画布（Konva）—— 手势与渲染。
- * 移植 dsh-design-mode DesignCanvas 的交互模型（指针中心缩放、空格/中键平移、
- * 点选/框选、Transformer 缩放），v1 元素类型 = 图像 + 视频占位卡。
+ * 无限画布（Konva）—— 移植自 dsh-design-mode DesignCanvas.tsx（MIT © DeepSeek），
+ * 去 cordis 化：controller 调 gugu 版、类型走本地 ./types。
+ *
+ * 两条勿丢的不变量（dsh 设计精髓，注释在源码对应处）：
+ * 1. **注释/手势坐标全部归一化**（0~1，相对元素自身）——元素移动缩放后锚点仍准确；
+ * 2. **Delete = hideSelected（隐藏）**，渲染层过滤 hidden，版本与资产永不因手滑丢失。
  */
-import { Stage, Layer, Image as KonvaImage, Rect, Circle, Text, Group, Transformer } from 'react-konva'
+import { Circle, Group, Image as KonvaImage, Layer, Rect, Stage, Text, Transformer } from 'react-konva'
 import type Konva from 'konva'
-import type { KonvaEventObject } from 'konva/lib/Node'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { KonvaEventObject } from 'konva/lib/Node.js'
+import { useEffect, useRef, useState } from 'react'
 
-import { fetchAssetUrl } from './api'
 import { designController } from './controller'
-import type { CanvasElement, CanvasViewport } from './types'
+import type { CanvasComment, CanvasDocument, CanvasElement, CanvasTool, CanvasViewport } from './types'
 
 const MIN_SCALE = 0.05
-const MAX_SCALE = 8
+const MAX_SCALE = 4
 
-/** asset → HTMLImageElement 缓存（objectURL 复用）。 */
-const imageCache = new Map<string, Promise<HTMLImageElement>>()
-
-function loadElementImage(pid: string, assetId: string): Promise<HTMLImageElement> {
-  const key = pid + ':' + assetId
-  const hit = imageCache.get(key)
-
-  if (hit) {
-    return hit
-  }
-
-  const pending = fetchAssetUrl(pid, assetId).then(src => new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new window.Image()
-
-    img.onload = () => resolve(img)
-    img.onerror = reject
-    img.src = src
-  }))
-
-  imageCache.set(key, pending)
-
-  return pending
+export interface PendingCommentAnchor {
+  kind: 'point' | 'rect'
+  versionId: string
+  x: number
+  y: number
+  width?: number
+  height?: number
 }
 
-interface ElementImageProps {
-  element: CanvasElement
-  onActivate: (id: string, additive: boolean) => void
-  pid: string
-  selected: boolean
-  transformerRef: React.RefObject<Konva.Transformer | null>
-}
+type Gesture = { kind: 'rect'; start: Point; current: Point; versionId: string }
 
-function ElementImage({ element, onActivate, pid, selected, transformerRef }: ElementImageProps) {
-  const [img, setImg] = useState<null | HTMLImageElement>(null)
-  const nodeRef = useRef<Konva.Group>(null)
-  const isVideo = element.type === 'video'
-
-  useEffect(() => {
-    if (isVideo) {
-      return
-    }
-
-    let live = true
-
-    loadElementImage(pid, element.assetId)
-      .then(el => {
-        if (live) {
-          setImg(el)
-        }
-      })
-      .catch(() => undefined)
-
-    return () => {
-      live = false
-    }
-  }, [element.assetId, isVideo, pid])
-
-  // 选中时把 Transformer 绑到本节点
-  useEffect(() => {
-    const tr = transformerRef.current
-
-    if (tr && selected && nodeRef.current) {
-      tr.nodes([nodeRef.current])
-      tr.getLayer()?.batchDraw()
-    }
-  }, [selected, transformerRef])
-
-  const width = element.width
-  const height = element.height
-
-  return (
-    <Group
-      draggable={!element.locked}
-      onDragEnd={(e: KonvaEventObject<DragEvent>) => {
-        designController.moveElement(element.id, e.target.x(), e.target.y())
-      }}
-      onTransformEnd={() => {
-        const node = nodeRef.current
-
-        if (node) {
-          // Group 无固有尺寸：transformer 的 scale 增量折算回 width/height 再复位
-          designController.resizeElement(element.id, element.width * node.scaleX(), element.height * node.scaleY())
-          node.scaleX(1)
-          node.scaleY(1)
-        }
-      }}
-      onMouseDown={(e: KonvaEventObject<MouseEvent>) => {
-        onActivate(element.id, e.evt.shiftKey)
-      }}
-      ref={nodeRef}
-      rotation={element.rotation}
-      visible={!element.hidden}
-      x={element.x}
-      y={element.y}
-    >
-      {isVideo
-        ? (
-            <>
-              <Rect cornerRadius={8} fill="#1f2430" height={height} shadowBlur={12} shadowColor="#000" shadowOpacity={0.35} width={width} />
-              <Text
-                align="center"
-                fill="#cdd3df"
-                fontSize={14}
-                height={height}
-                text={'▶ 视频素材'}
-                verticalAlign="middle"
-                width={width}
-              />
-            </>
-          )
-        : img
-          ? <KonvaImage height={height} image={img} width={width} />
-          : <Rect cornerRadius={6} fill="#2a2f3a" height={height} width={width} />}
-    </Group>
-  )
-}
+interface Point { x: number; y: number }
 
 export interface DesignCanvasProps {
-  pid: string
+  document: CanvasDocument
+  height: number
+  onComment: (anchor: PendingCommentAnchor) => void
   selectedIds: readonly string[]
-  viewport: CanvasViewport
+  tool: CanvasTool
+  width: number
 }
 
-export function DesignCanvas({ pid, selectedIds, viewport }: DesignCanvasProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
+export function DesignCanvas({ document, height, onComment, selectedIds, tool, width }: DesignCanvasProps) {
   const stageRef = useRef<Konva.Stage>(null)
-  const transformerRef = useRef<Konva.Transformer>(null)
-  const [size, setSize] = useState({ h: 600, w: 900 })
-  const [view, setView] = useState<CanvasViewport>(viewport)
   const [spaceDown, setSpaceDown] = useState(false)
-  const panRef = useRef<null | { sx: number; sy: number; vx: number; vy: number }>(null)
+  const [gesture, setGesture] = useState<Gesture | null>(null)
+  const viewport = document.viewport
 
-  const doc = designController.view.document
-  const elements = useMemo(
-    () => Object.values(doc?.elements ?? {}).sort((a, b) => a.z - b.z),
-    [doc]
-  )
-
-  // 容器尺寸跟随布局
+  // 空格 = 临时 hand（dsh 同款）；Ctrl/Cmd+Z undo/redo；Delete 隐藏。
   useEffect(() => {
-    const el = containerRef.current
+    const isTyping = (target: EventTarget | null): boolean =>
+      target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement
 
-    if (!el) {
-      return
-    }
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (isTyping(event.target)) {
+        return
+      }
 
-    const ro = new ResizeObserver(() => {
-      setSize({ h: el.clientHeight, w: el.clientWidth })
-    })
-
-    ro.observe(el)
-
-    return () => ro.disconnect()
-  }, [])
-
-  useEffect(() => {
-    setView(viewport)
-  }, [viewport])
-
-  // 空格 = 临时 hand 工具
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && !e.repeat) {
+      if (event.code === 'Space') {
+        event.preventDefault()
         setSpaceDown(true)
       }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+        event.preventDefault()
+        if (event.shiftKey) {
+          designController.redo()
+        } else {
+          designController.undo()
+        }
+      }
+
+      if ((event.key === 'Backspace' || event.key === 'Delete') && selectedIds.length > 0) {
+        event.preventDefault()
+        designController.hideSelected()
+      }
     }
-    const up = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
+    const onKeyUp = (event: KeyboardEvent): void => {
+      if (event.code === 'Space') {
         setSpaceDown(false)
       }
     }
 
-    window.addEventListener('keydown', down)
-    window.addEventListener('keyup', up)
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
 
     return () => {
-      window.removeEventListener('keydown', down)
-      window.removeEventListener('keyup', up)
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
     }
-  }, [])
+  }, [selectedIds.length])
 
-  const commitView = useCallback((next: CanvasViewport) => {
-    setView(next)
-    designController.setViewport(next.scale, next.x, next.y)
-  }, [])
+  const elements = Object.values(document.elements).filter(e => !e.hidden).sort((a, b) => a.z - b.z)
+  const elementByVersion = new Map(elements.map(e => [e.versionId, e]))
+  // 注释按创建时间编号（1 起）——画布徽章与后续会话列表共用同一序号语义。
+  const commentNumbers = new Map(
+    Object.values(document.comments)
+      .sort((l, r) => l.createdAt - r.createdAt)
+      .map((c, i) => [c.id, i + 1])
+  )
 
-  // 指针中心滚轮缩放
-  const onWheel = useCallback((e: KonvaEventObject<WheelEvent>) => {
-    e.evt.preventDefault()
-    const stage = stageRef.current
-    const container = containerRef.current
-
-    if (!stage || !container) {
+  const finishGesture = (): void => {
+    if (gesture === null) {
       return
     }
 
-    const pointer = stage.getPointerPosition()
+    const rect = normalizedRect(gesture.start, gesture.current)
 
-    if (!pointer) {
-      return
+    if (rect.width > 0.005 && rect.height > 0.005) {
+      onComment({ kind: 'rect', versionId: gesture.versionId, ...rect })
     }
 
-    const oldScale = view.scale
-    const direction = e.evt.deltaY > 0 ? -1 : 1
-    const factor = 1.06 ** direction
-    const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, oldScale * factor))
-    const mousePointTo = { x: (pointer.x - view.x) / oldScale, y: (pointer.y - view.y) / oldScale }
-    const rect = container.getBoundingClientRect()
-    const center = { x: rect.width / 2, y: rect.height / 2 }
-
-    commitView({
-      scale: nextScale,
-      x: center.x - mousePointTo.x * nextScale,
-      y: center.y - mousePointTo.y * nextScale
-    })
-  }, [commitView, view])
-
-  // 平移：中键 / 空格+左键 / hand 工具
-  const onPointerDown = useCallback((e: KonvaEventObject<PointerEvent | MouseEvent>) => {
-    const evt = e.evt as MouseEvent
-    const isPan = evt.button === 1 || (spaceDown && evt.button === 0) || designController.view.tool === 'hand'
-
-    if (!isPan) {
-      return
-    }
-
-    const pointer = stageRef.current?.getPointerPosition()
-
-    if (pointer) {
-      panRef.current = { sx: pointer.x, sy: pointer.y, vx: view.x, vy: view.y }
-    }
-  }, [spaceDown, view])
-
-  const onPointerMove = useCallback(() => {
-    const pan = panRef.current
-    const pointer = stageRef.current?.getPointerPosition()
-
-    if (!pan || !pointer) {
-      return
-    }
-
-    commitView({ scale: view.scale, x: pan.vx + (pointer.x - pan.sx), y: pan.vy + (pointer.y - pan.sy) })
-  }, [commitView, view])
-
-  const onPointerUp = useCallback(() => {
-    panRef.current = null
-  }, [])
-
-  const onActivate = useCallback((id: string, additive: boolean) => {
-    const cur = designController.view.selectedIds
-
-    if (additive) {
-      designController.select(cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id])
-    } else if (!cur.includes(id)) {
-      designController.select([id])
-    }
-  }, [])
-
-  const onStageMouseDown = useCallback((e: KonvaEventObject<MouseEvent>) => {
-    // 空白处点击 → 清空选择
-    if (e.target === e.target.getStage()) {
-      designController.select([])
-    }
-  }, [])
+    setGesture(null)
+  }
 
   return (
-    <div
-      className="absolute inset-0 overflow-hidden"
-      ref={containerRef}
-      style={{ cursor: spaceDown ? 'grab' : 'default', touchAction: 'none' }}
+    <Stage
+      height={height}
+      ref={stageRef}
+      scaleX={viewport.scale}
+      scaleY={viewport.scale}
+      width={width}
+      x={viewport.x}
+      // hand 工具或按住空格 → 整 Stage 可拖（拖完落到 viewport）。
+      draggable={tool === 'hand' || spaceDown}
+      onDragEnd={(event: KonvaEventObject<DragEvent>) => {
+        if (event.target !== event.currentTarget) {
+          return
+        }
+
+        designController.updateViewport({ scale: viewport.scale, x: event.target.x(), y: event.target.y() })
+      }}
+      onPointerDown={event => {
+        // 空白处按下 = 清空选择（仅 select 工具，注释工具不误触）。
+        if (event.target === event.currentTarget && tool === 'select') {
+          designController.clearSelection()
+        }
+      }}
+      onPointerUp={finishGesture}
+      onWheel={event => {
+        event.evt.preventDefault()
+        const stage = stageRef.current
+
+        if (!stage) {
+          return
+        }
+
+        const pointer = stage.getPointerPosition()
+
+        if (!pointer) {
+          return
+        }
+
+        // 指针中心缩放：先换算指针下的文档坐标，缩放后反推视口原点。
+        const oldScale = viewport.scale
+        const point = { x: (pointer.x - viewport.x) / oldScale, y: (pointer.y - viewport.y) / oldScale }
+        const direction = event.evt.deltaY > 0 ? -1 : 1
+        const nextScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, oldScale * (direction > 0 ? 1.08 : 1 / 1.08)))
+        designController.updateViewport({
+          scale: nextScale,
+          x: pointer.x - point.x * nextScale,
+          y: pointer.y - point.y * nextScale
+        })
+      }}
     >
-      <Stage
-        height={size.h}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onMouseDown={onStageMouseDown}
-        onWheel={onWheel}
-        ref={stageRef}
-        scaleX={view.scale}
-        scaleY={view.scale}
-        width={size.w}
-        x={view.x}
-        y={view.y}
-      >
-        <Layer>
-          {/* 点阵背景（画布方向感） */}
-          <GridLayer size={size} view={view} />
-          {elements.map(el => (
-            <ElementImage
-              element={el}
-              key={el.id}
-              onActivate={onActivate}
-              pid={pid}
-              selected={selectedIds.includes(el.id)}
-              transformerRef={transformerRef}
+      <Layer>
+        {elements.map(element => {
+          const asset = document.assets[element.assetId]
+
+          if (!asset) {
+            return null
+          }
+
+          return (
+            <CanvasImage
+              element={element}
+              key={element.id}
+              mediaKind={asset.kind}
+              onCommentPoint={(versionId, p) => onComment({ kind: 'point', versionId, ...p })}
+              onGestureMove={(versionId, p) =>
+                setGesture(cur => (cur && cur.versionId === versionId ? { ...cur, current: p } : cur))}
+              onGestureStart={(versionId, p) => setGesture({ current: p, kind: 'rect', start: p, versionId })}
+              selected={selectedIds.includes(element.id)}
+              tool={tool}
             />
-          ))}
-          <KonvaTransformer ref={transformerRef} selectedIds={selectedIds} view={view} />
-        </Layer>
-      </Stage>
-    </div>
+          )
+        })}
+        {elements.flatMap(element => Object.values(document.comments)
+          .filter(c => c.parentVersionId === element.versionId)
+          .map(c => (
+            <CommentMarker
+              comment={c}
+              element={element}
+              key={c.id}
+              number={commentNumbers.get(c.id) ?? 1}
+            />
+          )))}
+        {gesture ? <GesturePreview gesture={gesture} element={elementByVersion.get(gesture.versionId)} /> : null}
+      </Layer>
+    </Stage>
   )
 }
 
-/** Transformer 只在有选中时挂上，锚点尺寸随 stage 缩放补偿。 */
-function KonvaTransformer({
-  ref,
-  selectedIds,
-  view
-}: {
-  ref: React.RefObject<Konva.Transformer | null>
-  selectedIds: readonly string[]
-  view: CanvasViewport
-}) {
-  if (selectedIds.length === 0) {
-    return null
-  }
-
-  return (
-    <Transformer
-      anchorSize={8 / view.scale}
-      borderStroke="#4f8bff"
-      keepRatio={false}
-      ref={ref}
-      rotateEnabled={false}
-    />
-  )
+interface CanvasImageProps {
+  element: CanvasElement
+  mediaKind: 'image' | 'video'
+  onCommentPoint: (versionId: string, point: Point) => void
+  onGestureMove: (versionId: string, point: Point) => void
+  onGestureStart: (versionId: string, point: Point) => void
+  selected: boolean
+  tool: CanvasTool
 }
 
-function GridLayer({ size, view }: { size: { h: number; w: number }; view: CanvasViewport }) {
-  const gap = 48
-  const lines: React.ReactNode[] = []
-  const x0 = Math.floor(-view.x / view.scale / gap) * gap
-  const y0 = Math.floor(-view.y / view.scale / gap) * gap
-  const x1 = x0 + size.w / view.scale + gap * 2
-  const y1 = y0 + size.h / view.scale + gap * 2
+function CanvasImage({ element, mediaKind, onCommentPoint, onGestureMove, onGestureStart, selected, tool }: CanvasImageProps) {
+  const [img, setImg] = useState<null | HTMLImageElement>(null)
+  const imageRef = useRef<Konva.Image>(null)
+  const transformerRef = useRef<Konva.Transformer>(null)
 
-  if ((x1 - x0) / gap > 400 || (y1 - y0) / gap > 400) {
-    return null
+  // 视频 v1 渲染占位卡（真实缩略帧/播放按钮在 M4 资产面板一并做）。
+  useEffect(() => {
+    if (mediaKind === 'video') {
+      return
+    }
+
+    let alive = true
+
+    designController.assetUrl(element.assetId)
+      .then(src => {
+        const loaded = new window.Image()
+
+        loaded.onload = () => {
+          if (alive) {
+            setImg(loaded)
+          }
+        }
+        loaded.src = src
+      })
+      .catch(() => undefined)
+
+    return () => {
+      alive = false
+    }
+  }, [element.assetId, mediaKind])
+
+  // Transformer 绑定选中节点（dsh：单点绑定，多选留 M4）。
+  useEffect(() => {
+    const tr = transformerRef.current
+
+    if (tr) {
+      tr.nodes(selected && imageRef.current ? [imageRef.current] : [])
+      tr.getLayer()?.batchDraw()
+    }
+  }, [selected])
+
+  /** 指针位置 → 元素内归一化坐标（0~1）。所有锚点走这里，保证缩放不变性。 */
+  const localPoint = (): Point | null => {
+    const point = imageRef.current?.getRelativePointerPosition()
+
+    if (point === null || point === undefined) {
+      return null
+    }
+
+    return { x: clamp01(point.x / element.width), y: clamp01(point.y / element.height) }
   }
 
-  for (let x = x0; x < x1; x += gap) {
-    for (let y = y0; y < y1; y += gap) {
-      lines.push(<Circle fill="#8891a522" key={`${x}:${y}`} radius={1.2 / view.scale} x={x} y={y} />)
+  const pointerDown = (event: KonvaEventObject<PointerEvent | MouseEvent | TouchEvent>): void => {
+    const point = localPoint()
+
+    if (point === null) {
+      return
+    }
+
+    if (tool === 'select') {
+      designController.select(element.id, event.evt.metaKey || event.evt.ctrlKey || event.evt.shiftKey)
+      return
+    }
+
+    if (tool === 'point-comment') {
+      onCommentPoint(element.versionId, point)
+      return
+    }
+
+    if (tool === 'rect-comment') {
+      onGestureStart(element.versionId, point)
     }
   }
 
-  return <>{lines.slice(0, 4000)}</>
+  return (
+    <Group>
+      {mediaKind === 'video'
+        ? (
+            <>
+              <Rect
+                cornerRadius={8}
+                fill="#1f2430"
+                height={element.height}
+                listening={false}
+                rotation={element.rotation}
+                shadowBlur={12}
+                shadowColor="#000"
+                shadowOpacity={0.35}
+                stroke={selected ? '#5b8cff' : 'rgba(120,130,150,.25)'}
+                strokeWidth={selected ? 2 : 1}
+                width={element.width}
+                x={element.x}
+                y={element.y}
+              />
+              <Text
+                align="center"
+                fill="#cdd3df"
+                fontSize={14}
+                height={element.height}
+                listening={false}
+                rotation={element.rotation}
+                text="▶ 视频素材"
+                verticalAlign="middle"
+                width={element.width}
+                x={element.x}
+                y={element.y}
+              />
+            </>
+          )
+        : (
+            <KonvaImage
+              draggable={tool === 'select' && !element.locked}
+              height={element.height}
+              image={img ?? undefined}
+              opacity={img ? 1 : 0.35}
+              ref={imageRef}
+              rotation={element.rotation}
+              shadowBlur={selected ? 14 : 6}
+              shadowColor="black"
+              shadowOpacity={selected ? 0.24 : 0.12}
+              stroke={selected ? '#5b8cff' : 'rgba(120,130,150,.25)'}
+              strokeWidth={selected ? 2 : 1}
+              width={element.width}
+              x={element.x}
+              y={element.y}
+              onDragEnd={(e: KonvaEventObject<DragEvent>) => {
+                designController.updateElement(element.id, { x: e.target.x(), y: e.target.y() })
+              }}
+              onPointerDown={pointerDown}
+              onPointerMove={() => {
+                const point = localPoint()
+
+                if (point !== null) {
+                  onGestureMove(element.versionId, point)
+                }
+              }}
+              onTransformEnd={() => {
+                const node = imageRef.current
+
+                if (!node) {
+                  return
+                }
+
+                // 四角锚点缩放：scale 增量折算回 width/height 再复位（dsh 同款）。
+                const w = Math.max(24, node.width() * node.scaleX())
+                const h = Math.max(24, node.height() * node.scaleY())
+                node.scaleX(1)
+                node.scaleY(1)
+                designController.updateElement(element.id, { height: h, width: w, x: node.x(), y: node.y() })
+              }}
+            />
+          )}
+      <Transformer
+        anchorFill="#fff"
+        anchorSize={9}
+        borderStroke="#5b8cff"
+        enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
+        keepRatio
+        ref={transformerRef}
+        rotateEnabled={!element.locked}
+        boundBoxFunc={(oldBox, nextBox) => (nextBox.width < 24 || nextBox.height < 24 ? oldBox : nextBox)}
+      />
+      {element.locked
+        ? <Text fontSize={16} listening={false} rotation={element.rotation} text="🔒" x={element.x + 8} y={element.y + 8} />
+        : null}
+    </Group>
+  )
 }
+
+/** 注释编号徽章：状态色（draft/open 蓝、running 橙、resolved 绿、failed 红）。 */
+function CommentMarker({ comment, element, number }: { comment: CanvasComment; element: CanvasElement; number: number }) {
+  const color = comment.status === 'resolved' ? '#3bb273'
+    : comment.status === 'failed' ? '#e25555'
+      : comment.status === 'running' ? '#f2a93b' : '#5b8cff'
+
+  if (comment.anchor.kind === 'rect') {
+    const { x, y, width, height } = comment.anchor
+    return (
+      <Group listening={false} rotation={element.rotation} x={element.x} y={element.y}>
+        <Rect
+          dash={[8, 5]}
+          fill="rgba(91,140,255,.10)"
+          height={height * element.height}
+          stroke={color}
+          strokeWidth={2}
+          width={width * element.width}
+          x={x * element.width}
+          y={y * element.height}
+        />
+        <MarkerBadge color={color} number={number} x={(x + width) * element.width} y={(y + height) * element.height} />
+      </Group>
+    )
+  }
+
+  const { x, y } = comment.anchor
+  return (
+    <Group listening={false} rotation={element.rotation} x={element.x} y={element.y}>
+      <MarkerBadge color={color} number={number} x={x * element.width} y={y * element.height} />
+    </Group>
+  )
+}
+
+function MarkerBadge({ color, number, x, y }: { color: string; number: number; x: number; y: number }) {
+  const radius = 12
+  return (
+    <Group listening={false} x={x} y={y}>
+      <Circle fill={color} radius={radius} shadowBlur={4} shadowColor="black" shadowOpacity={0.2} stroke={color} />
+      <Text
+        align="center"
+        fill="white"
+        fontSize={10}
+        fontStyle="bold"
+        height={radius * 2}
+        offsetX={radius}
+        offsetY={6}
+        text={String(number)}
+        width={radius * 2}
+      />
+    </Group>
+  )
+}
+
+function GesturePreview({ element, gesture }: { element: CanvasElement | undefined; gesture: Gesture }) {
+  if (!element) {
+    return null
+  }
+
+  const rect = normalizedRect(gesture.start, gesture.current)
+  return (
+    <Group listening={false} rotation={element.rotation} x={element.x} y={element.y}>
+      <Rect
+        dash={[8, 5]}
+        fill="rgba(91,140,255,.12)"
+        height={rect.height * element.height}
+        stroke="#5b8cff"
+        strokeWidth={2}
+        width={rect.width * element.width}
+        x={rect.x * element.width}
+        y={rect.y * element.height}
+      />
+    </Group>
+  )
+}
+
+function normalizedRect(start: Point, current: Point): { height: number; width: number; x: number; y: number } {
+  return {
+    x: Math.min(start.x, current.x),
+    y: Math.min(start.y, current.y),
+    width: Math.abs(current.x - start.x),
+    height: Math.abs(current.y - start.y)
+  }
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value))
+}
+
+export type { CanvasViewport }

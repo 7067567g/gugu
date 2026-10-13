@@ -14,9 +14,9 @@
 - **品牌基础**：应用名/图标/协议/NSIS/exe 元数据咕咕化；boot 屏「咕咕 GUGU」
 
 ## 进行中 🚧
-- **M2b Design 画布移植**：dsh-design-mode 的 DesignCanvas / DesignSurface / controller
-  三件套（框选、评论锚点、Transformer、fit-to-view、上下文工具栏）替换现有骨架版；
-  资产面板升格为独立窗格
+- **M2b Design 画布移植** ✅ 主体完成（2026-10-13）：归一化注释锚点、Transformer、
+  平移/缩放/锁定/隐藏、fit-to-view、串行保存与幂等（docs/02 §5 有交付清单）；
+  剩余：资产面板独立窗格、视频缩略帧、mask 笔刷注释
 
 ## 计划中 📋
 - **M3 引导式意图协议**：生成前 3~5 轮「1 问 + 3 选项」服务端硬校验（协议强制，非提示词自律）

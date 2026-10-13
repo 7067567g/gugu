@@ -139,6 +139,7 @@ def _new_document(name: str) -> Dict[str, Any]:
         "updatedAt": now,
         "viewport": {"x": 0, "y": 0, "scale": 1},
         "assets": {},
+        "comments": {},
         "elements": {},
         "versions": {},
         "jobs": {},
@@ -501,12 +502,13 @@ async def save_document(pid: str, body: SaveDocumentBody):
             return {"document": current}
         if body.expected_revision != current["revision"]:
             raise HTTPException(status_code=409, detail="文档版本冲突（他人已修改），已返回最新副本")
-        # Host 权威合并（dsh save 语义）：客户端只拥有布局面（elements/viewport/name），
+        # Host 权威合并（dsh save 语义）：客户端只拥有布局面（elements/viewport/name/comments），
         # jobs/assets/versions/幂等窗口由 Host 持有，整体替换会丢 Host 字段。
+        # comments 自 M2b 起客户端可写（注释锚点）；送会话处理在 M4 走专用端点。
         doc = dict(current)
-        for host_field in ("assets", "elements", "versions", "jobs"):
+        for host_field in ("assets", "elements", "versions", "jobs", "comments"):
             doc.setdefault(host_field, {})
-        for key in ("elements", "viewport", "name"):
+        for key in ("elements", "viewport", "name", "comments"):
             if key in body.document:
                 doc[key] = body.document[key]
         doc["revision"] = current["revision"] + 1
