@@ -176,6 +176,23 @@ def list_active_subagents() -> List[Dict[str, Any]]:
     with _active_subagents_lock:
         return [{k: v for k, v in r.items() if k not in _PRIVATE_RECORD_KEYS} for r in _active_subagents.values()]
 
+def list_known_subagents() -> List[Dict[str, Any]]:
+    """Copy of the live + recently-finished subagent attribution records, one per ``subagent_id``
+    (a live entry wins over its retained stub), private runtime handles excluded. Read-only:
+    callers use this to overlay the durable delegation ledger; it never mutates the registry.
+    The owning live UI/gateway session is surfaced under the read-only ``owner_ui_session_id``
+    alias so a session catalog can match it without exposing the authority field."""
+    with _active_subagents_lock:
+        merged: Dict[str, Dict[str, Any]] = {}
+        for source in (_recent_subagents, _active_subagents):
+            for sid, record in source.items():
+                merged[sid] = {
+                    "subagent_id": sid,
+                    **{k: v for k, v in record.items() if k not in _PRIVATE_RECORD_KEYS},
+                    "owner_ui_session_id": record.get("owner_session_id"),
+                }
+        return list(merged.values())
+
 def _is_descendant_of(child_agent: Any, parent_agent: Any, max_hops: int = 8) -> bool:
     """True when *child_agent* sits below *parent_agent* in the spawn tree (walks the ``_delegate_parent_ref`` weakref
     chain stamped at build time). Identity only — a parent may steer/stop its own children and grandchildren, never
