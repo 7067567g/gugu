@@ -689,7 +689,20 @@ def _prompt_builtin(module: str, fn: str, kw: str = ""):
 
 
 _cmd_learn = _prompt_builtin("agent.learn_prompt", "build_learn_prompt")
-_cmd_plan = _prompt_builtin("agent.plan_prompt", "build_plan_prompt")
+
+
+def _cmd_plan(rid, params, session, name, arg):
+    """/plan: toggle persisted plan mode; 'off' exits without a model turn."""
+    apply = getattr(_tools_mod("agent.plan_mode"), "apply_plan_command")
+    build = getattr(_tools_mod("agent.plan_prompt"), "build_plan_prompt")
+    # The agent's session_id is exactly what its handle_function_call sees; params'
+    # session_id is the fallback for a session whose agent is not built yet.
+    sid = getattr((session or {}).get("agent"), "session_id", None) or params.get("session_id", "")
+    if not apply(sid, arg):
+        return _exec_out(rid, "Plan mode off.")
+    return _ok(rid, {"type": "send", "message": build(arg)})
+
+
 _cmd_init = _prompt_builtin("hermes_cli.init_command", "build_init_prompt_for_cwd", kw="extra")
 
 

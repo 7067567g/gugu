@@ -878,9 +878,25 @@ class GatewayInboundMixin:
         return await self._hm_rewrite_turn_to_prompt(event, source, "learn", _ack, lambda: build_learn_prompt(req))
 
     async def _hm_cmd_plan(self, event, source, _quick_key):
+        from agent.plan_mode import apply_plan_command
         from agent.plan_prompt import build_plan_prompt
 
         task = event.get_command_args().strip()
+        # Same session id the turn's handle_function_call will use: the live agent's
+        # session_id, else the durable key->session_id mapping (never the routing key).
+        _state = self._peek_session_state(_quick_key)
+        sid = getattr(getattr(getattr(_state, "turn", None), "agent", None), "session_id", None)
+        if not (isinstance(sid, str) and sid):
+            _peek = getattr(getattr(self, "session_store", None), "peek_session_id", None)
+            try:
+                sid = _peek(_quick_key) if callable(_peek) else None
+            except Exception:
+                sid = None
+        async with self._async_profile_scope_for_source(source):
+            active = apply_plan_command(sid if isinstance(sid, str) and sid else _quick_key, task)
+        if not active:
+            await self._send_command_ack(source, "Plan mode off.", "plan")
+            return True, ""
         _ack = f"Planning: {task[:80]}{'…' if len(task) > 80 else ''}" if task else "Planning from this conversation's context…"
         return await self._hm_rewrite_turn_to_prompt(event, source, "plan", _ack, lambda: build_plan_prompt(task))
 

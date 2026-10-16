@@ -1933,10 +1933,14 @@ class CLICommandsMixin:
         self._queue_prompt_turn(build_learn_prompt(user_request), "/learn")
 
     def _handle_plan_command(self, cmd: str):
-        """Handle /plan — write a markdown implementation plan, no execution. The live agent
+        """Handle /plan — enter session plan mode; '/plan off' exits it. The live agent
         inspects the workspace read-only and saves the plan under ``.hermes/plans/``."""
+        from agent.plan_mode import apply_plan_command
         from agent.plan_prompt import build_plan_prompt
         task = _command_arg(cmd)  # optional — empty infers the task from conversation context
+        if not apply_plan_command(getattr(self, "session_id", None), task):
+            print("\n📋 Plan mode off.")
+            return
         print(f"\n📋 Planning: {_ellipsize(task, 80)}" if task
               else "\n📋 Planning from this conversation's context...")
         self._queue_prompt_turn(build_plan_prompt(task), "/plan")
