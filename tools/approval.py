@@ -20,7 +20,7 @@ import threading
 from typing import Optional
 
 from utils import env_var_enabled, is_truthy_value
-from tools import approval_context
+from tools import approval_context, approval_outcome
 from tools.approval_context import (
     _get_session_platform, _is_cron_approval_context,
     _is_gateway_approval_context, _is_interactive_cli, _is_single_query_approval_context,
@@ -1006,10 +1006,17 @@ def _run_approval_gate(
                 logger.warning("%s (pattern: %s): %s — no interactive user/gateway present; "
                                "BLOCKED (fail-closed). Set HERMES_INTERACTIVE or "
                                "HERMES_GATEWAY_SESSION to answer the prompt.", *log_args)
-                return _blocked(no_human_block_message or (
+                # T-02: abnormal/no-human paths land on the one closed outcome set and
+                # emit the log-only audit pair; nothing here enters a model message.
+                outcome = approval_outcome.request(
+                    {"kind": "action", "pattern_key": pattern_key, "description": description},
+                    asker=None,
+                )
+                return {**_blocked(no_human_block_message or (
                     f"BLOCKED: approval required ({description}) but no "
                     "interactive user or gateway is present to approve it."),
-                    pattern_key=pattern_key, description=description)
+                    pattern_key=pattern_key, description=description),
+                    "outcome": outcome}
         logger.warning("%s (pattern: %s): %s — set HERMES_INTERACTIVE or "
                        "HERMES_GATEWAY_SESSION to require approval.", *log_args)
         return _approved()
