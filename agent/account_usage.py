@@ -662,12 +662,12 @@ def _call_plugin_usage_hook(profile, base_url: Optional[str], api_key: Optional[
     """Run the profile hook under the shared deadline; past it → None. Exceptions re-raise in the
     caller so ``fetch_account_usage`` fails open without a worker-thread traceback on ``/usage``."""
     from agent.deadline import run_bounded_sync
-    from providers.base import ProviderProfile
+    from providers.cost import read_account_usage, uses_base_account_usage
 
-    if type(profile).fetch_account_usage is ProviderProfile.fetch_account_usage:
-        return None  # base no-op: no thread to spawn
+    if uses_base_account_usage(profile):
+        return None
     bounded = run_bounded_sync(
-        lambda: profile.fetch_account_usage(base_url=base_url, api_key=api_key),
+        lambda: read_account_usage(profile, base_url=base_url, api_key=api_key),
         PLUGIN_USAGE_HOOK_DEADLINE_S, label="plugin-account-usage")
     return None if bounded.timed_out else bounded.value
 

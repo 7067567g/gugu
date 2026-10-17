@@ -51,7 +51,55 @@ from providers.base import ProviderProfile
 logger = logging.getLogger(__name__)
 
 # Process-wide layer: bundled plugins, pip entry points, legacy ``providers/<name>.py``.
-_REGISTRY: dict[str, ProviderProfile] = {}
+#
+# ``_REGISTRY`` gets a single-profile identity only through :func:`_store_profile`
+# (reached through :func:`register_provider`). The guard below is a runtime one — a stray
+# ``providers._REGISTRY[name] = profile`` used to create a second write path that
+# silently skipped ``_SOURCES``/``_ALIASES``/the list cache; it now raises instead.
+# Whole-snapshot maintenance (``clear``/``update``/``pop``/``popitem``) stays open on
+# purpose — see :class:`_SealedRegistry`. The dict still reads like a plain ``dict``
+# (``get``/``values``/``items``/`in`).
+_REGISTRY_WRITE_TOKEN: ContextVar[bool] = ContextVar("_provider_registry_write_token", default=False)
+
+
+class _SealedRegistry(dict):
+    """Process-wide provider registry that seals *single-key identity writes*.
+
+    Only the mutators that create or remove one named row — ``__setitem__``,
+    ``__delitem__`` and ``setdefault`` — require ``_REGISTRY_WRITE_TOKEN`` (held by
+    :func:`_store_profile`); a bare ``providers._REGISTRY[name] = profile`` raises
+    ``RuntimeError``, so a single profile can only acquire a registry identity
+    through ``_store_profile`` (which mirrors ``_SOURCES``/``_ALIASES``/the list
+    cache in the same critical section).
+
+    ``clear()``, ``update()``, ``pop()`` and ``popitem()`` are deliberately left
+    unsealed (they delegate straight to ``dict``). They maintain a whole snapshot
+    rather than establish a new single-profile registration: ``hermes_cli/plugin_dev.py``
+    rolls a registry snapshot back with ``pop`` + ``update``, and the existing
+    provider-discovery tests use ``clear``/``update``/``pop`` to isolate global
+    state. Sealing those would break working production and test code without
+    closing any second registration path, so the runtime contract stays on the
+    identity write, not on bulk maintenance.
+    """
+
+    def _require_write_token(self) -> None:
+        if not _REGISTRY_WRITE_TOKEN.get():
+            raise RuntimeError("_REGISTRY must be written through _store_profile()")
+
+    def __setitem__(self, key, value):
+        self._require_write_token()
+        super().__setitem__(key, value)
+
+    def __delitem__(self, key):
+        self._require_write_token()
+        super().__delitem__(key)
+
+    def setdefault(self, key, default=None):
+        self._require_write_token()
+        return super().setdefault(key, default)
+
+
+_REGISTRY: dict[str, ProviderProfile] = _SealedRegistry()
 _ALIASES: dict[str, str] = {}
 # Where the CURRENT registration of each name came from: "bundled" / "user" (a
 # ``$HERMES_HOME`` plugin dir) / "runtime" (entry point, legacy module, direct call).
@@ -118,6 +166,25 @@ def _sync_auth_registry() -> None:
             logger.debug("%s sync skipped: %s", module, exc)
 
 
+def _store_profile(profile: ProviderProfile) -> None:
+    """The ONLY writer of the process-wide layer.
+
+    Holds ``_REGISTRY_WRITE_TOKEN`` for the duration of the write so the sealed dict
+    lets it through; every mirror (source, aliases, list cache) is updated in the same
+    critical section, which is what makes this a seam rather than a convention.
+    """
+    global _PROVIDER_LIST_CACHE
+    token = _REGISTRY_WRITE_TOKEN.set(True)
+    try:
+        _REGISTRY[profile.name] = profile
+        _SOURCES[profile.name] = _current_source or "runtime"
+        for alias in profile.aliases:
+            _ALIASES[alias] = profile.name
+        _PROVIDER_LIST_CACHE = None
+    finally:
+        _REGISTRY_WRITE_TOKEN.reset(token)
+
+
 def register_provider(profile: ProviderProfile) -> None:
     """Register a provider profile by name and aliases.
 
@@ -126,18 +193,13 @@ def register_provider(profile: ProviderProfile) -> None:
     bundled profiles without editing repo code. A registration made while a
     ``$HERMES_HOME`` plugin is being imported lands in that home's layer.
     """
-    global _PROVIDER_LIST_CACHE
     layer = _REGISTRATION_TARGET.get()
     if layer is not None:
         layer.registry[profile.name] = profile
         for alias in profile.aliases:
             layer.aliases[alias] = profile.name
     else:
-        _REGISTRY[profile.name] = profile
-        _SOURCES[profile.name] = _current_source or "runtime"
-        for alias in profile.aliases:
-            _ALIASES[alias] = profile.name
-        _PROVIDER_LIST_CACHE = None
+        _store_profile(profile)
     if _discovered and not _discovering:  # post-discovery registration: mirror it immediately
         _sync_auth_registry()
 

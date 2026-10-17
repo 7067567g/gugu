@@ -34,6 +34,24 @@ jobs:
         working-directory: apps/desktop
         run: npm run typecheck
 
+  # Renderer unit tests (jsdom). The vitest config declares two projects; `ui`
+  # is the renderer surface (padding / status-stack regressions live here),
+  # `electron` is node-only. Installing at the root keeps the npm workspace
+  # resolution identical to the typecheck lane above.
+  desktop-vitest:
+    name: Desktop vitest (ui project)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install (lockfile; legacy peers for react-konva)
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - name: vitest (ui project)
+        working-directory: apps/desktop
+        run: npx vitest run --project ui
+
   # Fast cross-interpreter signal for the CI-harness test suite. The 40%
   # coverage floor lives in the dedicated `coverage` job below so the matrix
   # lane stays cheap; both lanes install the exact pins from [dev] so a local
@@ -59,9 +77,34 @@ jobs:
           mkdir -p "$HERMES_HOME"
           python -m pytest tests/ci -q
 
+  # Wider regression lane. The fast `tests/ci` job above is intentionally
+  # narrow; these two surfaces are the churn-prone paths this repo edits most,
+  # so they get one dedicated 3.12 lane. The editable install makes `plugins.*`
+  # and `tools.*` resolve exactly as they do locally (the tests/ci lane needs
+  # neither). Single lane on purpose: this is a correctness backstop, not a
+  # cross-interpreter signal, and the 40% coverage floor stays in `coverage`.
+  pytest-suites:
+    name: pytest suites (providers + mcp liveness)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install package and test dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -e . pytest==9.1.1 pytest-cov==7.1.0
+      - name: Run provider + MCP liveness suites
+        env:
+          HERMES_HOME: ${{ runner.temp }}/hermes-home
+        run: |
+          mkdir -p "$HERMES_HOME"
+          python -m pytest \
+            tests/plugins/model_providers \
+            tests/tools/test_mcp_transport_liveness.py -q
+
   # Single canonical coverage gate. Threshold rationale: measured baseline on
-  # 2026-10-17 was 41% (1882 statements, 1110 missing) over scripts/ci, so the
-  # floor is baseline - epsilon (D-005). Keep in lockstep with
+  # 2026-10-18 was 43.03% (2022 statements, 1152 missing) over scripts/ci, so
+  # the floor is baseline - epsilon (D-005). Keep in lockstep with
   # [tool.coverage.report] fail_under in pyproject.toml.
   coverage:
     name: coverage (scripts/ci, fail-under 40)
@@ -92,7 +135,9 @@ jobs:
     needs:
       - python-compile
       - desktop-typecheck
+      - desktop-vitest
       - pytest
+      - pytest-suites
       - coverage
     runs-on: ubuntu-latest
     steps:
@@ -100,9 +145,13 @@ jobs:
         run: |
           echo "python-compile: ${{ needs.python-compile.result }}"
           echo "desktop-typecheck: ${{ needs.desktop-typecheck.result }}"
+          echo "desktop-vitest: ${{ needs.desktop-vitest.result }}"
           echo "pytest: ${{ needs.pytest.result }}"
+          echo "pytest-suites: ${{ needs.pytest-suites.result }}"
           echo "coverage: ${{ needs.coverage.result }}"
           test "${{ needs.python-compile.result }}" = "success"
           test "${{ needs.desktop-typecheck.result }}" = "success"
+          test "${{ needs.desktop-vitest.result }}" = "success"
           test "${{ needs.pytest.result }}" = "success"
+          test "${{ needs.pytest-suites.result }}" = "success"
           test "${{ needs.coverage.result }}" = "success"

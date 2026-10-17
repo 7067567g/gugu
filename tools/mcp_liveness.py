@@ -403,6 +403,105 @@ class TransportLivenessWatchdog:
 
 
 # --------------------------------------------------------------------------- #
+# Process-level production wiring (T-01 assembly)
+#
+# The watchdog class above is deliberately instance-scoped: one callback per
+# instance. Production needs ONE poller host for the whole process — a session
+# slot per served MCP client, each routing its close to that client's own
+# ``on_event`` — so the shared instance's sink dispatches on ``client_id``
+# through this callback table instead of every session building its own thread
+# pool. Both are module-level state: none of this touches MCPServerTask.__slots__.
+# --------------------------------------------------------------------------- #
+
+_PRODUCTION_WATCHDOG: Optional[TransportLivenessWatchdog] = None
+_PRODUCTION_CALLBACKS: dict[str, Callable[[TransportClosed], None]] = {}
+_PRODUCTION_LOCK = threading.Lock()
+
+
+def _dispatch(event: TransportClosed) -> None:
+    """Route one watchdog event to the callback registered for its ``client_id``.
+
+    A callback runs on the poller thread, so a raising sink must never kill the
+    poller (or reach the caller): log at debug and drop the event. An event whose
+    client already unwatched is simply dropped — the slot is gone, nobody is
+    left to notify.
+    """
+    with _PRODUCTION_LOCK:
+        callback = _PRODUCTION_CALLBACKS.get(event.client_id)
+    if callback is None:
+        return
+    try:
+        callback(event)
+    except Exception:
+        logger.debug("transport liveness: production callback for client %s raised", event.client_id, exc_info=True)
+
+
+def production_watchdog() -> TransportLivenessWatchdog:
+    """Return the process-level watchdog, building the shared instance on first use."""
+    global _PRODUCTION_WATCHDOG
+    with _PRODUCTION_LOCK:
+        if _PRODUCTION_WATCHDOG is None:
+            _PRODUCTION_WATCHDOG = TransportLivenessWatchdog(on_event=_dispatch)
+        return _PRODUCTION_WATCHDOG
+
+
+def watch_session(client_id: str, *, server_name: str = "", is_closed: Optional[Callable[[], Optional[bool]]] = None,
+                  transport: Any = None, state_getter: Any = None,
+                  on_event: Optional[Callable[[TransportClosed], None]] = None) -> _LivenessSlot:
+    """Arm one watchdog slot for *client_id* on the process-level watchdog.
+
+    The callback is registered BEFORE the slot is armed so the poller can never
+    observe a close it cannot route. ``state_getter`` defaults to
+    :data:`READY_STATE` because callers only arm a client that just became live;
+    a transport that closes later is exactly what the poller reports.
+    """
+    client_id = str(client_id)
+    if on_event is not None:
+        with _PRODUCTION_LOCK:
+            _PRODUCTION_CALLBACKS[client_id] = on_event
+    return production_watchdog().arm(client_id, server_name=server_name,
+                                     state_getter=READY_STATE if state_getter is None else state_getter,
+                                     is_closed=is_closed, transport=transport)
+
+
+def unwatch_session(client_id: str) -> bool:
+    """Retire *client_id*: drop its callback first, then disarm its slot.
+
+    Returns True when a slot was actually removed. Idempotent — a session ending
+    after its transport already closed (the watchdog emitted and dropped the
+    slot itself) still cleans up its callback and reports False.
+    """
+    client_id = str(client_id)
+    with _PRODUCTION_LOCK:
+        _PRODUCTION_CALLBACKS.pop(client_id, None)
+    return production_watchdog().disarm(client_id)
+
+
+class _PidLedgerHandle:
+    """Pid-only transport facade: lets :func:`transport_is_closed` read a child-pid ledger."""
+
+    __slots__ = ("pids",)
+
+    def __init__(self, pids: Any) -> None:
+        self.pids = pids
+
+
+def session_transport_is_closed(task: Any, session: Any) -> Optional[bool]:
+    """Best-effort closed probe for one served session.
+
+    A stdio session's SDK object exposes no closed flag: the spawned child ledger
+    (``task._stdio_child_pids``) is the liveness signal, so it is fed through
+    :func:`transport_is_closed`'s pid path. Every other transport (Streamable
+    HTTP / SSE) is probed directly on *session*. ``None`` means unknown — the
+    watchdog keeps polling rather than emitting a false close.
+    """
+    pids = getattr(task, "_stdio_child_pids", None)
+    if pids:
+        return transport_is_closed(_PidLedgerHandle(pids))
+    return transport_is_closed(session)
+
+
+# --------------------------------------------------------------------------- #
 # 404 "Session not found" -> re-initialize + schema cache invalidation (T-01)
 # --------------------------------------------------------------------------- #
 

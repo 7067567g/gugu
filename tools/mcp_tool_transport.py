@@ -249,7 +249,25 @@ class MCPServerTransportMixin:
         # recovery isn't gated on a stale consecutive-failure count (#16788).
         # Unproven until keepalive/tool-call success (#62212).
         self._session_proven = False
-        reason = await self._wait_for_lifecycle_event()
+        # Arm the process-level watchdog for THIS session instance. The poller runs on its own
+        # thread, so an event is hopped back onto this loop before touching ``_reconnect_event``
+        # (``asyncio.Event.set`` is not thread-safe). The unwatch in ``finally`` runs on every exit
+        # — normal, exception AND cancellation — so no slot (and no poller thread) outlives the
+        # session it watched.
+        from tools.mcp_liveness import session_transport_is_closed, unwatch_session, watch_session
+
+        loop = asyncio.get_running_loop()
+        client_id = f"{self.name}:{id(session)}"
+        watch_session(
+            client_id,
+            server_name=self.name,
+            is_closed=lambda: session_transport_is_closed(self, session),
+            on_event=lambda _event: loop.call_soon_threadsafe(self._reconnect_event.set),
+        )
+        try:
+            reason = await self._wait_for_lifecycle_event()
+        finally:
+            unwatch_session(client_id)
         if label and reason == "reconnect":
             logger.info("MCP server '%s': reconnect requested — tearing down %s session", self.name, label)
         return reason

@@ -5,6 +5,82 @@
 > 与桌面包 `apps/desktop/package.json` 的 `0.17.6` 是上游内核/桌面包版本，**不随 gugu 版本递增**。
 > 发布 tag 形如 `gugu-vX.Y.Z`，只推 `origin`（fork），**绝不** push `upstream`。
 
+## 0.7.0 — 2026-10-18
+
+- **gugu 版本**：`0.7.0`（根 `GUGU_VERSION`；本轮 `optimize@v1` 三目标各「实现 + 接线 + 热路径」三件齐，属新增能力 → MINOR+1）
+- **上游底座**：hermes-agent `0.21.5`（`pyproject.toml`，**未改动**）；桌面包 `0.17.6`（`apps/desktop/package.json`，**未改动**）
+- **轮型 / run**：optimize 轮 `gugu-l2-o1`（Round 1，loop-2 第 5/7 轮；L2-G01 + L2-G02 + L2-G03）
+- **发布 tag**：`gugu-v0.7.0`（annotated；只推 `origin` fork，**绝不** push `upstream`）
+
+### 三目标 — 实现 + 接线 + 热路径
+
+| 目标 | 内容 | 热路径 |
+| --- | --- | --- |
+| `L2-G01` | 观测/评测 CI 接线扩容 + 覆盖率/解释器口径统一：`ci.yml` 新增 `pytest-suites`（非 `tests/ci` 套件）与 `desktop-vitest`（`npx vitest run --project ui`）两 job 并纳入 `all-checks-passed.needs`；陈旧覆盖率注释刷新为实测 43.03%（2022/1152） | GitHub Actions job graph：`push`/`pull_request` → 7+ job → `all-checks-passed` |
+| `L2-G02` | MCP watchdog 生产装配：`tools/mcp_liveness.py` 增进程级装配层（惰性单例 `TransportLivenessWatchdog` + `watch_session`/`unwatch_session`/`production_watchdog` + 按 `client_id` 分发）；`tools/mcp_tool_transport.py::_serve_session` 在 `try/finally` 内 arm/disarm slot | `MCPServerTask._serve_session` → watchdog 线程 → `TransportClosed` → `loop.call_soon_threadsafe(self._reconnect_event.set)` → 既有 reconnect ladder |
+| `L2-G03` | 网关单缝 + 成本单读数：`providers/__init__.py` 增 `_SealedRegistry` + 唯一写入口 `_store_profile`（运行期拒直写）；新增 `providers/cost.py` 为唯一读数出口（`read_call_cost`/`read_account_usage`），`agent/usage_pricing.py`/`agent/account_usage.py` 改走单缝；fallback 只补回归 | `providers.get_provider_profile`/`register_provider` → `agent.usage_pricing.estimate_usage_cost`（每次调用成本）→ `agent.account_usage.fetch_account_usage` |
+
+### 改动文件清单（只改不提交，由发布轮统一 commit）
+
+| 文件 | old → new | 类型 |
+| --- | --- | --- |
+| `GUGU_VERSION` | `0.6.0` → `0.7.0` | 发布 |
+| `docs/CHANGELOG-gugu.md` | 新增本 `## 0.7.0` 节 | 发布 |
+| `README.md` | 版本表新增 `gugu-v0.7.0` 行 | 发布 |
+| `.github/workflows/ci.yml` | 新增 `pytest-suites` / `desktop-vitest` job + 聚合 `needs` + 覆盖率注释 43.03% | 改（G01） |
+| `pyproject.toml` | 仅 `[tool.coverage.*]` 注释文本（`source`/`fail_under`/`[project].version` 未动） | 改（G01） |
+| `tests/ci/test_ci_workflow_wiring.py` | 扩 job/聚合/覆盖率注释断言 | 改（G01） |
+| `tools/mcp_liveness.py` | 增进程级装配层 + slot 生命周期 | 改（G02） |
+| `tools/mcp_tool_transport.py` | `_serve_session` `try/finally` 内 arm/disarm（404 恢复链零控制流改动） | 改（G02） |
+| `tests/tools/test_mcp_watchdog_wiring.py` | 新增装配/接线/线程回收断言 | 增（G02） |
+| `providers/__init__.py` | 增 `_SealedRegistry` + `_store_profile` 唯一写入口 | 改（G03） |
+| `providers/cost.py` | 新增唯一读数出口 + `uses_base_account_usage` | 增（G03） |
+| `agent/usage_pricing.py` | `estimate_usage_cost` 改走 `read_call_cost` | 改（G03） |
+| `agent/account_usage.py` | 改走 `read_account_usage`，base no-op 在 spawn 前短路 | 改（G03） |
+| `tests/providers/test_registry_single_seam.py` | 新增单缝断言（直写抛 `RuntimeError`） | 增（G03） |
+| `tests/plugins/model_providers/test_fallback_regression.py` | 新增 fallback 行为回归 | 增（G03） |
+
+### 先红 / 后绿（同一命令、同一 3.12.15 解释器、同 HEAD 时点可复跑）
+
+统一 `cd gugu-work`，`HERMES_HOME=$(mktemp -d)` + `PYTHONDONTWRITEBYTECODE=1` + `-p no:cacheprovider`，解释器 `runs/gugu-l2-o1/.scratch/venv/bin/python`（Python 3.12.15）：
+
+| 目标 | 命令 | 先红 | 后绿 |
+| --- | --- | --- | --- |
+| G01 | `pytest tests/ci/test_ci_workflow_wiring.py -q --noconftest` | **6 failed / 6 passed** rc=1（新 job/断言缺失） | **12 passed** rc=0 |
+| G02 | `pytest tests/tools/test_mcp_watchdog_wiring.py -q --noconftest` | **12 failed** rc=1（`watch_session`/`unwatch_session`/`production_watchdog`/`session_transport_is_closed` 缺失） | **12 passed** rc=0 |
+| G03 | `pytest tests/providers/test_registry_single_seam.py tests/plugins/model_providers/test_fallback_regression.py -q --noconftest` | **11 failed / 4 passed / 2 errors** rc=1（sealed registry / 成本缝缺失） | **13 passed**（缝文件）rc=0 |
+| G04 | `pytest tests/ci/test_gugu_release_consistency.py -q --noconftest` | **1 failed / 12 passed** rc=1（缺 `## 0.7.0` 节 + 缺 README `gugu-v0.7.0` 行） | **13 passed** rc=0 |
+
+### 门禁真值（GTC 四要素：命令原文 + 解释器/版本 + rc + 计数）
+
+| # | 命令（`cd gugu-work`，3.12.15） | 结果 | 基线 |
+| --- | --- | --- | --- |
+| 1 | `HERMES_HOME=$(mktemp -d) <py> -m pytest tests/ci -q --noconftest -p no:cacheprovider` | **169 passed / 4 skipped / 0 failed** rc=0 | 165P/4S/0F |
+| 2 | 同前置 + `--cov=scripts/ci --cov-report=term-missing --cov-fail-under=40` | **TOTAL 2022 / 1152 = 43.03%** rc=0 | 43.03%（`fail_under=40`/`source` 未改） |
+| 3 | `<py> -m compileall -q hermes_cli agent tools plugins hermes_constants.py model_tools.py toolsets.py run_agent.py` | rc=0 | rc=0 |
+| 4 | `pytest tests/tools/test_mcp_transport_liveness.py tests/tools/test_mcp_watchdog_wiring.py -q -p no:cacheprovider` | **27 passed / 0 failed** rc=0（单跑 liveness 15P/0F） | liveness 15P |
+| 5 | `pytest tests/providers/test_registry_single_seam.py tests/plugins/model_providers -q -p no:cacheprovider` | **263 passed / 0 failed** rc=0 | model_providers 246P |
+| 6 | `pytest tests/ci/test_gugu_release_consistency.py -q --noconftest -p no:cacheprovider` | **13 passed / 0 failed** rc=0 | 13P |
+
+> 四源一致性：`GUGU_VERSION`=0.7.0 / 上游内核 `0.21.5`（`pyproject.toml`）/ 上游桌面 `0.17.6`（`apps/desktop/package.json`）/ 根 `package.json` `1.0.0`（`unverified`）——后三者**未改动**。
+
+### 已知未验证项（**未通过，不得写成 PASS**）
+
+- **Actions 云上未触发**：本机到 `github.com` 的 git/HTTPS 通道实测 rc=124，`push`/`gh run list` 不可达；`pytest-suites`/`desktop-vitest` 两 CI job **未在云上实跑**。去向：`gugu-l2-v1`（owner MAIN）。
+- **desktop vitest 本地未实跑**：本机无 `node_modules`（E15），只有 `ci.yml` 静态接线断言。去向：`gugu-l2-v1` / CI 首跑。
+- **`tests/providers` 既有 19F**：非本轮引入，不作门禁；`tests/tools/test_mcp_tool.py` 基线 collection error 亦非本轮引入。
+- 逐条 rc/去向见 `workflow-group/runs/gugu-l2-o1/reports/VERIFY.md`。
+
+### 回滚（发布前，单批）
+
+```bash
+cd gugu-work
+git checkout 6e41d7f2 -- GUGU_VERSION docs/CHANGELOG-gugu.md README.md
+git status --porcelain   # 期望仅剩 WS-1/2/3 的 8 M + 3 ??（发布件回滚）
+```
+
+发布后按反向 commit revert（禁 force push、不改 main 历史）。
+
 ## 0.6.0 — 2026-10-18
 
 - **gugu 版本**：`0.6.0`（根 `GUGU_VERSION`；本轮 `audit@v1` 含一个行为不变的机械重整批次 X1，属代码变更 → MINOR+1）

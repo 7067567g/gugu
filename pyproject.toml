@@ -645,10 +645,14 @@ addopts = "-m 'not integration and not live'"
 # The CI gate measures the CI-harness scripts only (tests/ci is the suite that
 # exercises them); keep this in lockstep with the `coverage` job in
 # .github/workflows/ci.yml.
+# Interpreter scope for this gate: CI runs 3.11/3.12 (the matrix lane) and the
+# coverage lane pins 3.12; the local reproduction uses Python 3.12.15. The
+# system Python 3.14.4 is outside requires-python ">=3.11,<3.14" and is never
+# the gating interpreter (auxiliary evidence only).
 source = ["scripts/ci"]
 
 [tool.coverage.report]
-# Baseline measured 2026-10-17: 41% (1882 statements, 1110 missing) over
+# Baseline measured 2026-10-18: 43.03% (2022 statements, 1152 missing) over
 # scripts/ci. Floor is baseline minus epsilon so the gate stays green on
 # legitimate churn while still catching regressions (D-005).
 fail_under = 40

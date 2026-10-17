@@ -3,13 +3,15 @@
 These tests parse ``.github/workflows/ci.yml`` and ``pyproject.toml`` as data
 (YAML / TOML) instead of grepping strings, so a change that merely renames a
 job or moves a flag is still detectable. They are intentionally stdlib-only
-plus PyYAML: the CI job they guard installs only ``pytest`` and
-``pytest-cov``.
+plus PyYAML: the CI jobs they guard install only ``pytest`` /
+``pytest-cov`` (plus an editable package install on the wider suites lane).
 
-Scope: job graph (``pytest`` matrix on 3.11 + 3.12, a ``coverage`` job with
-``--cov-fail-under=40``, and an ``all-checks-passed`` aggregator whose
-``needs`` covers every other job) and the matching ``[tool.coverage.*]``
-configuration in ``pyproject.toml``.
+Scope: job graph (``pytest`` matrix on 3.11 + 3.12, the wider
+``pytest-suites`` regression lane, the ``desktop-vitest`` UI lane, a
+``coverage`` job with ``--cov-fail-under=40``, and an ``all-checks-passed``
+aggregator whose ``needs`` covers every other job) plus the matching
+``[tool.coverage.*]`` configuration and its measured-baseline comments in
+``pyproject.toml``.
 """
 
 from __future__ import annotations
@@ -30,11 +32,24 @@ REQUIRED_JOBS = {
     "python-compile",
     "desktop-typecheck",
     "pytest",
+    "pytest-suites",
+    "desktop-vitest",
     "coverage",
     "all-checks-passed",
 }
 PREREQUISITE_JOBS = REQUIRED_JOBS - {"all-checks-passed"}
 EXPECTED_PYTHON_MATRIX = {"3.11", "3.12"}
+# Surfaces the fast `tests/ci` signal deliberately does not cover and that this
+# repo churns most: the provider-profile suite and the MCP liveness contract.
+EXPECTED_SUITE_TARGETS = (
+    "tests/plugins/model_providers",
+    "tests/tools/test_mcp_transport_liveness.py",
+)
+# Coverage numbers the two stale comments (ci.yml + pyproject.toml) must carry,
+# measured on 6e41d7f2 with Python 3.12.15. The old 41% (1882/1110) wording is
+# a stale claim and must be gone.
+COVERAGE_BASELINE_PARTS = ("43.03%", "2022 statements, 1152 missing", "2026-10-18")
+STALE_COVERAGE_PARTS = ("41%", "1882 statements", "1110 missing")
 
 
 def _workflow_text() -> str:
@@ -74,6 +89,38 @@ def _pyproject() -> dict[str, Any]:
         return tomllib.load(handle)
 
 
+def _pyproject_text() -> str:
+    """Raw text: comments are not part of the parsed TOML, so read them here."""
+    assert PYPROJECT_PATH.is_file(), f"missing pyproject.toml: {PYPROJECT_PATH}"
+    return PYPROJECT_PATH.read_text(encoding="utf-8")
+
+
+def _toml_section(text: str, header: str) -> str:
+    """Verbatim lines of ``[header]`` up to (excluding) the next table header."""
+    lines = text.splitlines()
+    try:
+        start = lines.index(header)
+    except ValueError:  # pragma: no cover - guard clause
+        raise AssertionError(f"pyproject.toml is missing the {header} table") from None
+    body: list[str] = []
+    for line in lines[start + 1 :]:
+        if line.startswith("["):
+            break
+        body.append(line)
+    return "\n".join(body)
+
+
+def _step_values(job: dict[str, Any], key: str) -> list[str]:
+    """Raw values of a single step-level key (e.g. working-directory) in a job."""
+    values: list[str] = []
+    for step in job.get("steps") or []:
+        assert isinstance(step, dict), f"malformed step in job: {step!r}"
+        value = step.get(key)
+        if value is not None:
+            values.append(str(value))
+    return values
+
+
 def _job_ids_from_raw_text() -> list[str]:
     """Job ids as the workflow file actually spells them (two-space indent keys)."""
     return re.findall(r"^  ([a-z][a-z0-9-]*):\s*$", _workflow_text(), flags=re.MULTILINE)
@@ -86,8 +133,8 @@ def test_workflow_declares_expected_job_graph() -> None:
         "ci.yml is missing required jobs: "
         f"{sorted(REQUIRED_JOBS - set(jobs))}; found {sorted(jobs)}"
     )
-    assert len(jobs) >= 5, f"expected >= 5 jobs, found {len(jobs)}: {sorted(jobs)}"
-    assert len(_job_ids_from_raw_text()) >= 5, (
+    assert len(jobs) >= 7, f"expected >= 7 jobs, found {len(jobs)}: {sorted(jobs)}"
+    assert len(_job_ids_from_raw_text()) >= 7, (
         "top-level job ids must stay grep-able as two-space `key:` lines; "
         f"found {_job_ids_from_raw_text()}"
     )
@@ -155,7 +202,63 @@ def test_coverage_job_enforces_threshold() -> None:
     assert "--cov=scripts/ci" in text, "coverage job must measure scripts/ci"
     assert "--cov-report=term-missing" in text, "coverage job must print missing lines"
     assert "--cov-fail-under=40" in text, (
-        "coverage job must enforce the 40% floor (D-005: baseline 41% - epsilon)"
+        "coverage job must enforce the 40% floor (D-005: baseline 43.03% - epsilon)"
+    )
+
+
+def test_pytest_suites_job_covers_wider_regression_surfaces() -> None:
+    """The wider lane must actually run the surfaces the fast signal skips."""
+    jobs = _jobs()
+    assert "pytest-suites" in jobs, "ci.yml must define a `pytest-suites` job"
+    job = jobs["pytest-suites"]
+
+    assert job.get("runs-on"), "pytest-suites must declare a runner"
+    text = _steps_text(job)
+    matrix_versions = ((job.get("strategy") or {}).get("matrix") or {}).get("python-version")
+    if matrix_versions is None:
+        assert re.search(r"python-version:\s*['\"]?3\.12['\"]?", text), (
+            "pytest-suites must run on a single Python 3.12 lane"
+        )
+    else:
+        assert {str(v) for v in matrix_versions} == {"3.12"}, (
+            "pytest-suites must target Python 3.12 only"
+        )
+
+    assert "pytest==9.1.1" in text, "pytest-suites must pin pytest==9.1.1"
+    assert "pytest-cov==7.1.0" in text, "pytest-suites must install pytest-cov==7.1.0"
+    assert re.search(r"pip install -e \.", text), (
+        "pytest-suites must install the package editable so plugins.*/tools.* imports resolve"
+    )
+
+    for target in EXPECTED_SUITE_TARGETS:
+        assert target in text, f"pytest-suites must run {target}"
+
+    # Keep one canonical coverage gate: this lane stays threshold-free.
+    assert "--cov-fail-under" not in text, (
+        "the suites lane should not repeat the coverage gate; keep it in the coverage job"
+    )
+
+
+def test_desktop_vitest_job_runs_ui_project() -> None:
+    jobs = _jobs()
+    assert "desktop-vitest" in jobs, "ci.yml must define a `desktop-vitest` job"
+    job = jobs["desktop-vitest"]
+
+    assert job.get("runs-on"), "desktop-vitest must declare a runner"
+    text = _steps_text(job)
+    assert re.search(r"node-version:\s*['\"]?24['\"]?", text), (
+        "desktop-vitest must run on node 24 (root engines: ^22.22 || ^24.11 || >=26)"
+    )
+    assert re.search(r"npm ci\b", text), "desktop-vitest must install from the lockfile"
+    assert "--legacy-peer-deps" in text, (
+        "desktop-vitest must mirror the typecheck lane's legacy-peer-deps install"
+    )
+    assert re.search(r"npx vitest run\b", text), "desktop-vitest must run `npx vitest run`"
+    assert re.search(r"--project\s+ui\b", text), (
+        "desktop-vitest must select the `ui` (jsdom renderer) vitest project"
+    )
+    assert "apps/desktop" in _step_values(job, "working-directory"), (
+        "desktop-vitest must run from apps/desktop so it picks up vitest.config.ts"
     )
 
 
@@ -174,6 +277,8 @@ def test_all_checks_passed_aggregates_every_prerequisite() -> None:
     assert set(jobs) - {"all-checks-passed"} <= needs, (
         "all-checks-passed must aggregate every job in the workflow graph"
     )
+    for job_id in ("pytest-suites", "desktop-vitest"):
+        assert job_id in needs, f"all-checks-passed must depend on the new `{job_id}` job"
     # Aggregators must always report, otherwise a failed dependency silently
     # leaves the required check pending instead of red.
     assert job.get("if") == "always()", "all-checks-passed must run with `if: always()`"
@@ -191,6 +296,32 @@ def test_pyproject_coverage_gate_matches_workflow() -> None:
     report_section = coverage.get("report") or {}
     assert report_section.get("fail_under") == 40, (
         "pyproject.toml must set [tool.coverage.report] fail_under = 40"
+    )
+
+
+def test_coverage_comments_carry_measured_baseline() -> None:
+    """Both stale comments must quote the freshly measured 43.03% (2022/1152)."""
+    workflow_text = _workflow_text()
+    report_comment = _toml_section(_pyproject_text(), "[tool.coverage.report]")
+
+    for where, text in (("ci.yml", workflow_text), ("pyproject.toml", report_comment)):
+        for part in COVERAGE_BASELINE_PARTS:
+            assert part in text, f"{where} coverage comment must state {part!r}"
+        for stale in STALE_COVERAGE_PARTS:
+            assert stale not in text, f"{where} coverage comment still claims the stale {stale!r}"
+
+
+def test_coverage_run_comment_documents_interpreter_scope() -> None:
+    """The run-side comment must pin which interpreters may act as the gate."""
+    run_comment = _toml_section(_pyproject_text(), "[tool.coverage.run]")
+
+    for part in ("3.11/3.12", "3.12.15", "3.14.4", "<3.14"):
+        assert part in run_comment, (
+            f"[tool.coverage.run] comment must document the interpreter scope ({part!r})"
+        )
+    # The gate itself stays untouched by the comment refresh.
+    assert "source = [\"scripts/ci\"]" in run_comment, (
+        "[tool.coverage.run] source must stay ['scripts/ci']"
     )
 
 

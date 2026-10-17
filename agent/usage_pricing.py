@@ -637,8 +637,9 @@ def estimate_usage_cost(
     base_url: Optional[str] = None, api_key: Optional[str] = None,
 ) -> CostResult:
     from providers import get_provider_profile
+    from providers.cost import read_call_cost
     profile = get_provider_profile(provider or '')
-    reported = profile.get_usage_cost(model_name, usage) if profile else None
+    reported = read_call_cost(profile, model_name, usage)
     if reported is not None:
         return reported
     route = resolve_billing_route(model_name, provider=provider, base_url=base_url)
