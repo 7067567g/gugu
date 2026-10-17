@@ -5,6 +5,54 @@
 > 与桌面包 `apps/desktop/package.json` 的 `0.17.6` 是上游内核/桌面包版本，**不随 gugu 版本递增**。
 > 发布 tag 形如 `gugu-vX.Y.Z`，只推 `origin`（fork），**绝不** push `upstream`。
 
+## 0.6.0 — 2026-10-18
+
+- **gugu 版本**：`0.6.0`（根 `GUGU_VERSION`；本轮 `audit@v1` 含一个行为不变的机械重整批次 X1，属代码变更 → MINOR+1）
+- **上游底座**：hermes-agent `0.21.5`（`pyproject.toml`，**未改动**）；桌面包 `0.17.6`（`apps/desktop/package.json`，**未改动**）
+- **轮型 / run**：audit 轮 `gugu-l1-x1`（Round 1，loop-1 第 7/7 轮；A-01 全量审核 + A-02 机械重整 + A-03 复盘收口）
+- **发布 tag**：`gugu-v0.6.0`（annotated；只推 `origin` fork，**绝不** push `upstream`）
+
+### 机械重整批次 X1 — 版本解析单源收敛（行为不变）
+
+| 文件 | old → new | 类型 |
+| --- | --- | --- |
+| `hermes_cli/build_info.py` | `get_code_identity()` 内联 `tomllib` 二次解析 `pyproject.toml` + 私有 `_read_product_version()` → 单次 `from hermes_cli.version_source import version_summary`，取 `summary["upstream_kernel"]`/`summary["product"]` | 改（行为不变） |
+| `tests/ci/test_gugu_version_source.py` | 新增 `test_build_info_single_sources_upstream_version`（源码不含 `tomllib` + `version` 等价 `version_source.read_upstream_version(_ROOT)`） | 增（机械断言） |
+| `GUGU_VERSION` | `0.5.0` → `0.6.0` | 发布 |
+| `docs/CHANGELOG-gugu.md` | 新增本 `## 0.6.0` 节 | 发布 |
+| `README.md` | 版本表新增 `gugu-v0.6.0` 行 | 发布 |
+
+- **单源收益**：`version_summary()` 进入生产调用面；`pyproject.toml` `[project].version` 在 `build_info` 侧不再二次解析（reader 层 `hermes_cli/version_source.py` 为唯一解析点）。
+- **行为不变**：`version`（上游内核 `0.21.5`）与 `product_version`（gugu 产品线）仍各自独立降级 `None`；`_code_identity_cache` 缓存语义不变；`get_code_identity()` 仍不抛异常。
+- **范围**：`A1-09` 的其余 3 处 `tomllib` 重解析（`update_cmd_maint.py`/`main_install_repair.py`/`_early_recovery.py`）与 TD-011/012/013/015 本轮不做，去向 loop-2 / backlog，见 `workflow-group/runs/gugu-l1-x1/reports/REFACTOR-PLAN.md`。
+
+### X1 先红 / 后绿
+
+统一 `cd gugu-work`，`HERMES_HOME=$(mktemp -d)` + `--noconftest -p no:cacheprovider`：
+
+| 步骤 | 命令 | 计数 |
+| --- | --- | --- |
+| 先红（未改 `build_info.py`） | `python3 -m pytest tests/ci/test_gugu_version_source.py -q` | **1 failed / 18 passed**（`assert 'tomllib' not in src`） |
+| 后绿（改后） | 同命令 | **19 passed / 0 failed** |
+
+### 门禁证据（后绿）
+
+| # | 命令（`cd gugu-work`） | 结果 |
+| --- | --- | --- |
+| 1 | `HERMES_HOME=$(mktemp -d) python3 -m pytest tests/ci -q --noconftest -p no:cacheprovider` | **165 passed / 4 skipped / 0 failed**（基线 164P/4S/0F，净 +1 = 新增断言） |
+| 2 | `python3 -m compileall -q hermes_cli agent tools plugins` | rc=0 |
+| 3 | `python3 scripts/ci/check_design_rules.py` | rc=0 |
+| 4 | `.../gugu-l1-o1/.scratch/venv/bin/python -m pytest tests/ci -q --cov=scripts/ci --cov-fail-under=40` | **43.03%**（TOTAL 2022 stmts / 1152 miss），rc=0 |
+| 5 | `python3 scripts/ci/check_public_surface.py --base gugu-v0.5.0 --head HEAD --strict`（提交后） | 由 MAIN 在 S5 记录 |
+
+### 回滚（单批）
+
+```bash
+cd gugu-work
+git checkout bee9146a -- hermes_cli/build_info.py tests/ci/test_gugu_version_source.py GUGU_VERSION docs/CHANGELOG-gugu.md README.md
+git status --porcelain   # 期望 0 行（回到 bee9146a 干净树）
+```
+
 ## 0.5.0 — 2026-10-17
 
 - **gugu 版本**：`0.5.0`（根 `GUGU_VERSION`；本轮新增 CI 门禁、CLI 产品身份展示层、Design 规则单源与编排切片测试，属新增能力而非修 bug → MINOR+1）

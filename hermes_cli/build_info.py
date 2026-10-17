@@ -71,26 +71,18 @@ def _resolve_git_head_sha(project_root: Path) -> Optional[str]:
     return None
 
 
-def _read_product_version(project_root: Path) -> Optional[str]:
-    """gugu product version (root ``GUGU_VERSION``) via the version-single-source reader, or None."""
-    try:
-        from hermes_cli.version_source import read_product_version
-
-        return read_product_version(project_root)
-    except Exception:
-        return None
-
-
 def get_code_identity(refresh: bool = False) -> dict:
     """``{sha, short_sha, version, product_version, source}`` for the running checkout; never raises.
 
-    ``version`` is the upstream Hermes Agent kernel version from ``pyproject.toml`` (unchanged
-    meaning); ``product_version`` is the gugu product version from ``GUGU_VERSION``, surfaced so
-    runtime-status/update receipts can tell the product line from the kernel line. Resolution
-    mirrors the banner/dump callsites: live git for source installs, the baked
-    ``.hermes_build_sha`` for Docker images, else unknown. Cached per process — code identity
-    cannot change while a process runs (an updated checkout needs a restart), which is exactly
-    the property fleet version verification relies on. Each field degrades to None independently.
+    ``version`` is the upstream Hermes Agent kernel version declared in ``pyproject.toml``
+    (unchanged meaning); ``product_version`` is the gugu product version from ``GUGU_VERSION``,
+    surfaced so runtime-status/update receipts can tell the product line from the kernel line.
+    Both lines come from the single-source reader (``hermes_cli.version_source.version_summary``)
+    — this module no longer parses the kernel manifest itself. Resolution mirrors the
+    banner/dump callsites: live git for source installs, the baked ``.hermes_build_sha`` for
+    Docker images, else unknown. Cached per process — code identity cannot change while a
+    process runs (an updated checkout needs a restart), which is exactly the property fleet
+    version verification relies on. Each field degrades to None independently.
     """
     global _code_identity_cache
     if _code_identity_cache is not None and not refresh:
@@ -105,18 +97,27 @@ def get_code_identity(refresh: bool = False) -> dict:
         if sha:
             source = "build-file"
     version: Optional[str] = None
+    product_version: Optional[str] = None
     try:
-        import tomllib
-        with open(project_root / "pyproject.toml", "rb") as fh:  # windows-footgun: ok — binary mode, tomllib requires bytes
-            raw_version = tomllib.load(fh).get("project", {}).get("version")
-        version = str(raw_version) if raw_version else None
+        from hermes_cli.version_source import version_summary
+
+        summary = version_summary(project_root)
+        version = summary["upstream_kernel"]
+        product_version = summary["product"]
     except Exception:
-        version = None
+        # The two version lines stay independent: if the summary call fails outright, re-read
+        # the kernel line on its own so a broken product source cannot erase it.
+        try:
+            from hermes_cli.version_source import read_upstream_version
+
+            version = read_upstream_version(project_root)
+        except Exception:
+            version = None
     _code_identity_cache = {
         "sha": sha,
         "short_sha": sha[:8] if sha else None,
         "version": version,
-        "product_version": _read_product_version(project_root),
+        "product_version": product_version,
         "source": source}
     return dict(_code_identity_cache)
 

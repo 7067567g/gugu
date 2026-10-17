@@ -176,6 +176,18 @@ def test_code_identity_product_version_degrades_to_none(monkeypatch: pytest.Monk
     assert identity["version"] == hermes_cli.__version__
 
 
+def test_build_info_single_sources_upstream_version() -> None:
+    """X1: ``build_info`` reuses ``version_source`` — it must not re-parse ``pyproject.toml``.
+
+    Mechanical guard for the refactor batch: (a) the module source must contain no ``tomllib``
+    (the reader layer is the single parser), and (b) the surfaced ``version`` must equal what the
+    single-source reader returns for this checkout (upstream kernel line).
+    """
+    src = Path(build_info.__file__).read_text(encoding="utf-8")
+    assert "tomllib" not in src
+    assert build_info.get_code_identity(refresh=True)["version"] == version_source.read_upstream_version(_ROOT)
+
+
 def test_manifest_groups_are_declared_once(tmp_path: Path) -> None:
     """The reader is the only place the product version is defined for Python callers."""
     assert _GROUPS == set(version_source.PRODUCT_VERSION_GROUPS)
