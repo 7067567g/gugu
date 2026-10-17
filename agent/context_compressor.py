@@ -14,6 +14,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from agent import secret_redaction
 from agent.image_eviction_policy import outbound_image_retire_count
 from agent.auxiliary_client import (
     AuxiliaryExplicitCancellation,
@@ -1158,9 +1159,13 @@ _HISTORICAL_TASK_SECTION_RE = re.compile(
 
 def _redact_compaction_text(text: Any) -> str:
     """Redact text that crosses a compaction summary boundary (strict mode).
-    ``force=True`` overrides ``security.redact_secrets: false``; URL credentials are redacted too, since
+    The unified ``secret_redaction`` pass runs first so vendor prefixes/PEM/JWT
+    are replaced as whole secrets; the legacy strict pass then normalizes any
+    URL credentials it recognizes (``code=***`` / ``access_token=***``).
+    ``force=True`` overrides ``security.redact_secrets: false``, since
     summaries persist and re-enter every later prompt."""
-    return redact_sensitive_text(text or "", force=True, redact_url_credentials=True)
+    unified_redacted = secret_redaction.redact_secrets(text or "")
+    return redact_sensitive_text(unified_redacted, force=True, redact_url_credentials=True)
 
 
 def _dedupe_append(items: list[str], value: str, *, limit: int) -> None:

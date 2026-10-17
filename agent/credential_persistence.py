@@ -9,6 +9,8 @@ import hashlib
 import re
 from typing import Any, Dict, Mapping
 
+from agent.secret_redaction import redact_json_string_values
+
 
 # Sources Hermes owns and may persist with secrets.  Any other non-empty,
 # non-manual source is borrowed/reference-only so new external providers fail
@@ -46,6 +48,22 @@ _SECRET_VALUE_SUFFIXES = (
 )
 
 _CAMEL_CASE_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+
+# Owned sources may persist secrets, but refresh depends on these fields
+# round-tripping byte-for-byte at the disk boundary; everything else is
+# scrubbed by the unified redactor before it can reach ``auth.json``.
+_OWNED_REFRESH_WHITELIST = frozenset({
+    "agent_key", "access_token", "refresh_token", "api_key", "token", "secret",
+    "secret_fingerprint",
+})
+
+
+class CredentialRedactionError(RuntimeError):
+    """The unified redactor failed on an owned payload; refuse to persist it.
+
+    Fail-closed by design: raising aborts the write instead of letting a
+    caller fall back to storing the cleartext payload.
+    """
 
 
 def _normalize_key(key: Any) -> str:
@@ -96,19 +114,45 @@ def _credential_secret_fingerprint(payload: Mapping[str, Any]) -> str | None:
     return None
 
 
+def _redact_owned_value(key: Any, value: Any) -> Any:
+    """Redact one non-whitelisted owned field value, failing closed on error.
+
+    The error message carries only the normalized field name and the exception
+    type: no secret value may escape through an exception or a log line.
+    """
+    try:
+        return redact_json_string_values(value)
+    except Exception as exc:
+        raise CredentialRedactionError(
+            f"secret redaction failed for owned credential field "
+            f"{_normalize_key(key)!r} ({type(exc).__name__})"
+        ) from exc
+
+
 def sanitize_borrowed_credential_payload(
     payload: Mapping[str, Any],
     provider_id: Any = None,
 ) -> Dict[str, Any]:
     """Return a disk-safe credential-pool payload.
 
-    Owned sources pass through unchanged.  Borrowed sources keep labels,
-    source refs, status/cooldown metadata, counters and a fingerprint, but
-    every raw secret value field is removed.
+    Owned sources keep refresh-critical fields (``agent_key``/``access_token``/
+    ``refresh_token``/``api_key``/``token``/``secret`` and
+    ``secret_fingerprint``) verbatim, while every other string value is run
+    through the unified redactor.  Borrowed sources keep labels, source refs,
+    status/cooldown metadata, counters and a fingerprint, but every raw secret
+    value field is removed.  If the redactor raises, the write is refused via
+    :class:`CredentialRedactionError` rather than persisting cleartext.
     """
     result = dict(payload)
     if not is_borrowed_credential_source(result.get("source"), provider_id):
-        return result
+        return {
+            key: (
+                value
+                if _normalize_key(key) in _OWNED_REFRESH_WHITELIST
+                else _redact_owned_value(key, value)
+            )
+            for key, value in result.items()
+        }
     fingerprint = _credential_secret_fingerprint(result)
     sanitized = {k: v for k, v in result.items() if not _is_secret_payload_key(k)}
     if fingerprint:
