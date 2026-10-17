@@ -5,6 +5,86 @@
 > 与桌面包 `apps/desktop/package.json` 的 `0.17.6` 是上游内核/桌面包版本，**不随 gugu 版本递增**。
 > 发布 tag 形如 `gugu-vX.Y.Z`，只推 `origin`（fork），**绝不** push `upstream`。
 
+## 0.4.0 — 2026-10-17
+
+- **gugu 版本**：`0.4.0`（根 `GUGU_VERSION`；第二周期 14/14 收口轮：六维全量审核 40 条发现 + 3 批 9 文件机械重整 + 发布一致性机械断言，主题明显 → MINOR+1）
+- **上游底座**：hermes-agent `0.21.5`（`pyproject.toml`，**未改动**）；桌面包 `0.17.6`（`apps/desktop/package.json`，**未改动**）
+- **轮型 / run**：审核 + 代码重整轮 `gugu-c2-a1`（14 轮流水线第 14/14 轮）
+- **发布 tag**：`gugu-v0.4.0`（annotated；只推 `origin` fork，**绝不** push `upstream`）
+
+### 审核结论（第二周期六维全量审核）
+
+| 维度 | 报告 | 发现数 | 处置率 |
+| --- | --- | --- | --- |
+| 结构 / 入口 / 死代码 / 重复实现 | `runs/gugu-c2-a1/reports/AUDIT-structure.md` | A1 = 10 | 10/10 = 100% |
+| 测试 / CI 门禁覆盖面 | `runs/gugu-c2-a1/reports/AUDIT-tests-ci.md` | A2 = 12 | 12/12 = 100% |
+| 文档 / 身份 / 许可 / 上游同步 / 发布事实 | `runs/gugu-c2-a1/reports/AUDIT-docs-upstream.md` | A3 = 18 | 18/18 = 100% |
+| **合计** | 三份 AUDIT | **40** | **40/40 = 100%**（空处置 0） |
+
+- **处置分布**：改 **4**（A1-06、A2-03、A3-16、A3-18）、合 **5**（A1-03、A1-07、A1-09、A2-09、A3-05）、降 **14**、观 **4**、排除 **13**；每条均有四字段（结论 / 证据 / 处置 / 去向）。
+- **口径注（P-001-A）**：上述改 4 / 降 14 为 AUDIT 原表处置；A3-13（`SECURITY.es.md`）与 A3-15（docs 断链）在 REFACTOR-PLAN 中升级为“改”，升级后计数为 **改 6 / 合 5 / 降 12 / 观 4 / 排 13**，合计仍 **40/40**，结论不变。
+- **c1-a1 旧发现闭环**：34 条旧发现（A1 10 / A2 10 / A3 14）逐条在 `bb9b97c` 上复核 —— 仍成立 **26**、范围变化 **4**（A1-06、A1-10、A3-05、A3-08）、已消解 **3**（A2-04、A3-04、A3-10）、已证实 **1**（A2-06）。
+- **未纳入本轮**：15 条 backlog（`B-A1-01/02/08`、`B-A2-05/07/08/10/11`、`B-A3-01/02/11/13b/14/17`、`B-X2-01`），owner = 主会话，去向 = 下一周期 R1；见 `runs/gugu-c2-a1/reports/CLOSEOUT.md`。
+
+### 重整改动清单（3 批 / 9 文件：改 7 / 增 2 / 删 0，无移动）
+
+| 批次 | 文件 | 类型 | 摘要 |
+| --- | --- | --- | --- |
+| X1 | `SECURITY.es.md` | 改 | `Hermes Agent` → `咕咕 gugu` 22 处；`security@nousresearch.com` → `joydove@163.com` 2 处 |
+| X1 | `docs/02-三模式架构.md` | 改 | 第 67 行删除指向已删 `docs/01-Design…` 的断链，改写为基线 commit + `docs/03` 指引（不新增资产） |
+| X1 | `README.md` | 改 | 0.1.0 / 0.2.0 / 0.3.0 三行补 fork 发布提交链接 |
+| X2 | `tests/ci/test_classify_changes.py` | 改 | 2 例断链测试加 `skip(reason=A2-03/A1-06/56f6357/B-X2-01)` |
+| X2 | `tests/ci/test_live_comment.py` | 改 | 2 例断链测试加同源 `skip` |
+| X2 | `scripts/ci/README.md` | 增 | `scripts/ci/**` 孤儿资产分类（A 10 / B 3 / C 2）与 CI 重接入入口 |
+| X2 | `AGENTS.md` | 改 | 1 句过期 CI 描述修正（工作流已于 `56f6357` 删除、当前未接 CI） |
+| X3 | `hermes_cli/uninstall.py` | 改 | 第 265 行 docstring 改 raw（`"""` → `r"""`），清理 `SyntaxWarning` |
+| X3 | `tests/ci/test_gugu_release_consistency.py` | 增 | 发布线机械断言：`GUGU_VERSION` semver + CHANGELOG 节 + README 行（4 例，含判别力反例） |
+
+- **old→new 映射**：`runs/gugu-c2-a1/reports/X/WS-X-mapping.tsv`（9 行 × 5 列；无移动项，old=new 表示同路径内容变更，`(none)` 表示新增）。
+- **引用悬空**：本批无移动/删除，basename 悬空面 = 0；`agent/**` 零改动（`git diff --name-only -- agent` 为空）。
+
+### 先红 / 后绿主命令与计数
+
+统一在暂存克隆 `$W = runs/gugu-c2-a1/.scratch/gugu-work`（base `bb9b97c0abc62d63abebef027fd413940d4a1d10` = `origin/main` = `gugu-v0.3.0`），解释器 `$W/.venv/bin/python`（Python 3.12.15 + pytest 9.1.1），pytest 统一 `HERMES_HOME=$(mktemp -d)` + `-p no:cacheprovider` + `--noconftest`：
+
+| 批次 | 主断言 | 先红 | 后绿 |
+| --- | --- | --- | --- |
+| X1 | 身份 / 断链 / README 链接 grep | `Hermes Agent`=22、旧邮箱=2、断链命中 1、3 行 0 链接 | 22→0、2→0、断链 0、3 行 commit 链接 `git cat-file -e` 全 OK |
+| X2 | `pytest -q tests/ci` | **4 failed / 120 passed，rc=1** | **120 passed / 4 skipped / 0 failed，rc=0**（4F→4S 为显式化基线债，非改写为 pass） |
+| X3 | `-W error::SyntaxWarning compileall -f` + 发布断言 | **rc=1**（`hermes_cli/uninstall.py:265`）；断言文件不存在 | **rc=0**；发布断言 **4 passed**（假版本 `9.9.9` fixture rc=1 证判别力） |
+
+### 门禁证据（WS-V 真实复跑）
+
+| # | 命令（`cd $W`） | 退出码 | P/F/S | 与基线对比 / 归因 |
+| --- | --- | --- | --- | --- |
+| 1 | `./.venv/bin/python -m compileall -f -q tools agent hermes_cli acp_adapter` | **0** | — | 与基线一致（rc=0，无输出） |
+| 2 | `./.venv/bin/python -W error::SyntaxWarning -m compileall -f -q tools agent hermes_cli acp_adapter` | **0** | — | 基线 rc=1（X3-01 前）→ 0；`-f` 强制重编译，避免 `.pyc` 新鲜假绿 |
+| 3 | `HERMES_HOME=$(mktemp -d) ./.venv/bin/python -m pytest -q tests/ci --noconftest -p no:cacheprovider` | **0** | **124 passed / 4 skipped / 0 failed** | 基线 120P/4F（rc=1）；4F→4S 为显式基线债，P 120→124（+X3 4 例），新增失败 = 0 |
+| 4 | 同上，`tests/ci/test_gugu_release_consistency.py` | **0** | **4 passed / 0 failed** | 新断言；0.4.0 三源一致后保持绿 |
+| 5 | `import hermes_cli.main, agent.legacy_cli, acp_adapter.entry` → `IMPORT_OK`；`-m hermes_cli.main --version` / `--help` | **0 / 0 / 0** | — | 入口冒烟通过 |
+| 6 | 回归：`tests/scripts/test_check_{public_surface,profile_archive_boundary,profile_scope_patterns}.py` | **0** | **8 passed / 0 failed** | 基线 8P；0 新增失败 |
+| 7 | 回归：`tests/agent/test_context_file_sources.py` | **0** | **2 passed / 0 failed** | 基线 2P；0 新增失败 |
+| 8 | 回归：`tests/hermes_cli/test_uninstall.py` | — | — | 文件不存在，未跑；其覆盖面由门禁 3（`tests/ci`）承接 |
+| 9 | desktop `apps/desktop` `npm run typecheck` / `test:ui` | — | — | **未完整验证（E15）**：`node_modules` 不存在，不伪造 PASS |
+
+### 回滚方式
+
+- **发布前（当前工作树）**：`git checkout bb9b97c -- GUGU_VERSION docs/CHANGELOG-gugu.md README.md SECURITY.es.md "docs/02-三模式架构.md" tests/ci/test_classify_changes.py tests/ci/test_live_comment.py AGENTS.md hermes_cli/uninstall.py && rm -f scripts/ci/README.md tests/ci/test_gugu_release_consistency.py`。
+- **发布后**：按 **C4 → C3 → C2 → C1** 逆序 `git revert`（C4 与 C1 同碰 `README.md`）；**禁止 force push**，已 push 的回滚一律用反向提交表达。
+- 历史摘要**不回改**；无 DB 迁移、无外部依赖/服务/密钥变更。
+
+### 已知限制
+
+1. **desktop E15**：无 `node_modules`，`typecheck` / `test:ui` 未完整验证；去向 = 宿主恢复依赖后 `npm ci && npm run typecheck && npm run test:ui`（`B-A2-08`，下一周期 R1）。
+2. **`tests/ci` 4 skip 是显式化基线债，不是修复**：`.github/**` 资产仍未恢复；`B-X2-01`（owner 主会话 / 去向下一周期 R1）跟踪取消 skip 并删除 `scripts/ci/README.md` 的孤儿标注。
+3. **真实 `gugu-work` 需宿主 fast-forward**：本轮代码落 run 内暂存克隆，发布后由宿主执行 `git -C /home/a7067567g/下载/deepseek/60-外部仓库/gugu-work fetch origin --tags && git -C /home/a7067567g/下载/deepseek/60-外部仓库/gugu-work merge --ff-only origin/main`。
+4. **发布通道可能 API 兜底**：`github.com:443` 超时则改走 `api.github.com` Git Data API（前两轮已用此法成功）；tag/push 归主会话 S5。
+5. **版本四源仍不一致**（`GUGU_VERSION=0.4.0` / `pyproject=0.21.5` / 根 `package.json=1.0.0` / desktop `0.17.6`）：属 `B-A3-11` backlog，本轮不顺手统一。
+
+### 发布状态
+
+本片**只准备发布件**：`GUGU_VERSION`（`0.3.0` → `0.4.0`）、`docs/CHANGELOG-gugu.md`（本节）、`README.md`（版本表新增 `gugu-v0.4.0` 行，链接 `https://github.com/7067567g/gugu/releases/tag/gugu-v0.4.0`）。计划 4 个提交 **C1/C2/C3/C4**，tag 名 `gugu-v0.4.0`（annotated）。实际 `git add` / `commit` / `tag` / `push origin` 由主会话 S5 按显式 pathspec 执行；本片**未**在 `$W` 执行任何 `git add/commit/tag/push`、未 `git stash`。详见 `runs/gugu-c2-a1/reports/CLOSEOUT.md`。
+
 ## 0.3.0 — 2026-10-17
 
 - **gugu 版本**：`0.3.0`（根 `GUGU_VERSION`；把 `0.2.0` 已交付但生产零调用的两项能力接入生产热路径，主题明显 → MINOR+1）
