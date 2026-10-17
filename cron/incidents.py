@@ -120,6 +120,12 @@ def _redact_error(error: str) -> str:
         text = redact_sensitive_text(text, force=True)  # persisted to disk: always scrub
     except Exception:
         pass
+    try:
+        from agent.secret_redaction import redact_secrets
+
+        text = redact_secrets(text)  # unified vendor/PEM/JWT/URL pass on top of the above
+    except Exception:
+        pass
     return text[:MAX_ERROR_CHARS]
 
 
