@@ -484,9 +484,30 @@ def get_latest_release_tag(repo_dir: Optional[Path] = None) -> Optional[tuple]:
     return _memo("_latest_release_cache", _compute)
 
 
+def _product_version() -> Optional[str]:
+    """gugu product version (root ``GUGU_VERSION``) via the version-single-source reader.
+
+    Best-effort: the reader is stdlib-only and never raises, but a broken/missing module must
+    still not take the banner down.
+    """
+    def _read():
+        from hermes_cli.version_source import read_product_version
+
+        return read_product_version()
+
+    return _quiet(_read)
+
+
 def format_banner_version_label() -> str:
-    """Return the version label shown in the startup banner title."""
-    base = f"Hermes Agent v{VERSION} ({RELEASE_DATE})"
+    """Return the version label shown in the startup banner title.
+
+    Leads with the gugu product version when it is known (``gugu v<product> · Hermes Agent
+    v<upstream> (<date>)``) so the CLI names the product, not only the upstream kernel it is
+    built on; falls back to the upstream-only label when ``GUGU_VERSION`` is unreadable.
+    """
+    product = _product_version()
+    upstream = f"Hermes Agent v{VERSION} ({RELEASE_DATE})"
+    base = f"gugu v{product} · {upstream}" if product else upstream
     state = get_git_banner_state()
     if not state:
         return base

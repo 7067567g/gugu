@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "generated_by": "WS-2 / T-02 (run gugu-l1-o1, D-004)",
+  "description": "Machine-readable map of the version lines in this workspace. 'assert' is the expectation the release-consistency test enforces: a literal version, 'semver' (any valid semver, read dynamically), or 'unverified' (registered only, never compared).",
+  "sources": [
+    {
+      "group": "product",
+      "path": "GUGU_VERSION",
+      "pointer": "text",
+      "assert": "semver",
+      "verified": true,
+      "note": "gugu product version — the single source the CLI banner, hermes --version and build_info read"
+    },
+    {
+      "group": "upstream_kernel",
+      "path": "pyproject.toml",
+      "pointer": "project.version",
+      "assert": "0.21.5",
+      "verified": true,
+      "note": "upstream Hermes Agent kernel; not rewritten by gugu releases (D-004)"
+    },
+    {
+      "group": "upstream_desktop",
+      "path": "apps/desktop/package.json",
+      "pointer": "version",
+      "assert": "0.17.6",
+      "verified": true,
+      "note": "desktop shell release line; independent of the product version (D-004)"
+    },
+    {
+      "group": "workspace_unclassified",
+      "path": "package.json",
+      "pointer": "version",
+      "assert": "unverified",
+      "verified": false,
+      "note": "npm workspace root; ownership unknown — registered only, never asserted equal (D-004)"
+    }
+  ]
+}

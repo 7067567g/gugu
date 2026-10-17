@@ -33,3 +33,76 @@ jobs:
       - name: typecheck
         working-directory: apps/desktop
         run: npm run typecheck
+
+  # Fast cross-interpreter signal for the CI-harness test suite. The 40%
+  # coverage floor lives in the dedicated `coverage` job below so the matrix
+  # lane stays cheap; both lanes install the exact pins from [dev] so a local
+  # reproduction matches CI.
+  pytest:
+    name: pytest (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip pytest==9.1.1 pytest-cov==7.1.0
+      - name: Run tests/ci
+        env:
+          HERMES_HOME: ${{ runner.temp }}/hermes-home
+        run: |
+          mkdir -p "$HERMES_HOME"
+          python -m pytest tests/ci -q
+
+  # Single canonical coverage gate. Threshold rationale: measured baseline on
+  # 2026-10-17 was 41% (1882 statements, 1110 missing) over scripts/ci, so the
+  # floor is baseline - epsilon (D-005). Keep in lockstep with
+  # [tool.coverage.report] fail_under in pyproject.toml.
+  coverage:
+    name: coverage (scripts/ci, fail-under 40)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip pytest==9.1.1 pytest-cov==7.1.0
+      - name: Run tests/ci with coverage gate
+        env:
+          HERMES_HOME: ${{ runner.temp }}/hermes-home
+        run: |
+          mkdir -p "$HERMES_HOME"
+          python -m pytest tests/ci -q \
+            --cov=scripts/ci \
+            --cov-report=term-missing \
+            --cov-fail-under=40
+
+  # Single required status check. `if: always()` makes this job report even
+  # when a dependency fails; the explicit step then turns "dependency did not
+  # succeed" into a red aggregator instead of a silently pending check.
+  all-checks-passed:
+    name: All checks passed
+    if: always()
+    needs:
+      - python-compile
+      - desktop-typecheck
+      - pytest
+      - coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify every prerequisite job succeeded
+        run: |
+          echo "python-compile: ${{ needs.python-compile.result }}"
+          echo "desktop-typecheck: ${{ needs.desktop-typecheck.result }}"
+          echo "pytest: ${{ needs.pytest.result }}"
+          echo "coverage: ${{ needs.coverage.result }}"
+          test "${{ needs.python-compile.result }}" = "success"
+          test "${{ needs.desktop-typecheck.result }}" = "success"
+          test "${{ needs.pytest.result }}" = "success"
+          test "${{ needs.coverage.result }}" = "success"

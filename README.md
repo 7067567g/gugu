@@ -43,6 +43,7 @@ Agent 内核（会话记忆、技能沉淀、子代理、定时任务、终端/�
 | [gugu-v0.2.0](https://github.com/7067567g/gugu/commit/31858545bd565a3ec340dd65cb0fc61279102568) | 0.21.5 | 0.17.6 | T-01 MCP 传输关闭活性+404 重初始化、T-02 预算硬绑定+可重放 token 计量、T-03 统一密钥脱敏 |
 | [gugu-v0.3.0](https://github.com/7067567g/gugu/commit/bb9b97c0abc62d63abebef027fd413940d4a1d10) | 0.21.5 | 0.17.6 | T-01 token 计量接入 preflight + 阻塞超窗硬拒发、T-02 统一脱敏接入压缩摘要与 owned 凭据持久化 |
 | [gugu-v0.4.0](https://github.com/7067567g/gugu/releases/tag/gugu-v0.4.0) | 0.21.5 | 0.17.6 | 14/14 收口：第二周期六维全量审核 40 发现处置 100% + 3 批 9 文件机械重整（文档/CI/发布断言）+ 发布机械校验 |
+| [gugu-v0.5.0](https://github.com/7067567g/gugu/releases/tag/gugu-v0.5.0) | 0.21.5 | 0.17.6 | T-01 CI 全量接线 + 覆盖率门槛 40%；T-02 版本单一事实源 + CLI `gugu v0.5.0` 产品身份；T-03 Design 规则单源 + 编排切片测试 |
 
 ## 快速开始
 

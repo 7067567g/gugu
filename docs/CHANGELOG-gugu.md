@@ -5,6 +5,73 @@
 > 与桌面包 `apps/desktop/package.json` 的 `0.17.6` 是上游内核/桌面包版本，**不随 gugu 版本递增**。
 > 发布 tag 形如 `gugu-vX.Y.Z`，只推 `origin`（fork），**绝不** push `upstream`。
 
+## 0.5.0 — 2026-10-17
+
+- **gugu 版本**：`0.5.0`（根 `GUGU_VERSION`；本轮新增 CI 门禁、CLI 产品身份展示层、Design 规则单源与编排切片测试，属新增能力而非修 bug → MINOR+1）
+- **上游底座**：hermes-agent `0.21.5`（`pyproject.toml`，**未改动**）；桌面包 `0.17.6`（`apps/desktop/package.json`，**未改动**）
+- **轮型 / run**：optimize 轮 `gugu-l1-o1`（Round 1，三目标 T-01/T-02/T-03 + 发布件/VERIFY）
+- **发布 tag**：`gugu-v0.5.0`（annotated；只推 `origin` fork，**绝不** push `upstream`）
+
+### 三目标交付
+
+| 目标 | 主题 | 关键交付 |
+| --- | --- | --- |
+| T-01（G1） | CI 全量接线 + 覆盖率门槛 | `ci.yml` 5 job（`python-compile`/`desktop-typecheck`/`pytest` matrix 3.11+3.12/`coverage`/`all-checks-passed` 聚合）；`pyproject.toml` 新增 `[tool.coverage.run]`+`[tool.coverage.report] fail_under=40` 与 `pytest-cov==7.1.0`；新增接线静态断言 |
+| T-02（G2） | 版本单一事实源 + CLI 产品身份 | 新增 `hermes_cli/version_source.py` 读取层与 `version-sources.json` 四源分组；`banner.py`/`_startup_fast.py`/`build_info.py` 输出 `gugu v{product}` 且 `product_version` 同源；上游 `0.21.5`/桌面 `0.17.6` 不变 |
+| T-03（G3） | Design 规则单源 + 编排可演示切片 | 新增根 `DESIGN.md`（6 必需小节、数值各恰好一次并与 `gugu_storage.py` 常量一致）与 `scripts/ci/check_design_rules.py`（失败 rc=1）；后端 `create_project → submit_job(image) → queued → failed + error.message` 链路与前端 `OrchestrationPanel`/`/orchestration` GET+PUT 接线测试 |
+
+### 改动文件清单（17 个：12 改/新增交付 + 3 发布件 + 2 测试台账）
+
+| 目标 | 文件 | 类型 |
+| --- | --- | --- |
+| T-01 | `.github/workflows/ci.yml` | 改 |
+| T-01 | `pyproject.toml` | 改 |
+| T-01 | `tests/ci/test_ci_workflow_wiring.py` | 增 |
+| T-02 | `hermes_cli/version_source.py` | 增 |
+| T-02 | `version-sources.json` | 增 |
+| T-02 | `hermes_cli/banner.py` | 改 |
+| T-02 | `hermes_cli/_startup_fast.py` | 改 |
+| T-02 | `hermes_cli/build_info.py` | 改 |
+| T-02 | `tests/ci/test_gugu_version_source.py` | 增 |
+| T-02 | `tests/ci/test_gugu_release_consistency.py` | 改 |
+| T-03 | `DESIGN.md` | 增 |
+| T-03 | `scripts/ci/check_design_rules.py` | 增 |
+| T-03 | `tests/plugins/test_gugu_design_slice.py` | 增 |
+| T-03 | `tests/ci/test_design_rules.py` | 增 |
+| 发布 | `GUGU_VERSION` | 改 |
+| 发布 | `docs/CHANGELOG-gugu.md` | 改 |
+| 发布 | `README.md` | 改 |
+
+### 先红 / 后绿主命令与计数
+
+统一 `cd gugu-work`，`HERMES_HOME=$(mktemp -d)` + `-p no:cacheprovider` + `--noconftest`：
+
+| 目标 | 主断言命令 | 先红 | 后绿 |
+| --- | --- | --- | --- |
+| T-01 | `pytest tests/ci/test_ci_workflow_wiring.py -q` | **6 failed / 2 passed** | **8 passed** |
+| T-02 | `pytest tests/ci/test_gugu_version_source.py tests/ci/test_gugu_release_consistency.py -q` | **1 error**（`ImportError: cannot import name 'version_source'`）；按文件分跑 release：**7 failed / 4 passed** | **31 passed** |
+| T-03 | `pytest tests/ci/test_design_rules.py -q`；`pytest tests/plugins/test_gugu_design_slice.py -q` | **5 failed**（checker/DESIGN 缺失；切片文件红证据按同源断言） | **5 passed**；**7 passed** |
+| 发布 | `pytest tests/ci/test_gugu_release_consistency.py -q`（`GUGU_VERSION` 已升 `0.5.0`，CHANGELOG/README 未更新） | **1 failed / 12 passed**（缺 `## 0.5.0` 节与 `gugu-v0.5.0` 行） | **13 passed** |
+
+### 门禁证据
+
+| # | 命令（`cd gugu-work`） | 结果 |
+| --- | --- | --- |
+| 1 | `HERMES_HOME=$(mktemp -d) python3 -m pytest tests/ci -q --noconftest -p no:cacheprovider` | **164 passed / 4 skipped / 0 failed**（基线 124P/4S） |
+| 2 | `../workflow-group/runs/gugu-l1-o1/.scratch/venv/bin/python -m pytest tests/ci -q --cov=scripts/ci --cov-fail-under=40` | **43.03%** ≥ 40%（门槛 = 基线 41% − ε，D-005） |
+| 3 | `python3 -m compileall -q hermes_cli agent tools plugins` | rc=0 |
+| 4 | `python3 scripts/ci/check_design_rules.py` | 「设计规则校验通过」，rc=0 |
+| 5 | `python3 -m hermes_cli.main --version` | `gugu v0.5.0 · Hermes Agent v0.21.5 (2026.9.24) · upstream 7e0be4a0`，rc=0 |
+| 6 | `python3 -c "...get_code_identity()['product_version']"` | `0.5.0`（== `GUGU_VERSION`） |
+
+### 已知限制
+
+1. **GitHub Actions 云上未实跑**：job 图/matrix/`needs.*.result` 只有静态断言 + 本地同命令复跑；去向 `gugu-l1-x1`。
+2. **desktop E15 未验证**：无 `node_modules`，前端仅做静态接线断言，未跑 vitest/真实桌面渲染；去向 `gugu-l1-x1`。
+3. **`tests/plugins` 全目录既有 collection 错误**：缺 `cryptography`/`python-dotenv`/telegram 包（非本轮引入），Design 切片按文件级命令取证；去向 `gugu-l1-x1`。
+4. **根 `package.json`=1.0.0 归属未验证**：按 D-004 只登记为 `unverified`，不纳入相等断言。
+5. **四源不同值**：`GUGU_VERSION=0.5.0` / 上游 `0.21.5` / 桌面 `0.17.6` 属设计（产品版本与上游解耦），不做同值对齐。
+
 ## 0.4.0 — 2026-10-17
 
 - **gugu 版本**：`0.4.0`（根 `GUGU_VERSION`；第二周期 14/14 收口轮：六维全量审核 40 条发现 + 3 批 9 文件机械重整 + 发布一致性机械断言，主题明显 → MINOR+1）

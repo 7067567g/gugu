@@ -171,6 +171,24 @@ def read_install_method() -> str | None:
     return (method or "").strip().lower() or None
 
 
+def _degraded_version_line() -> str:
+    """The ``hermes --version`` first line when ``banner`` cannot be imported.
+
+    Prefers the gugu product version (root ``GUGU_VERSION``) so the product identity survives a
+    broken banner import, then degrades to the upstream-only line; never raises.
+    """
+    from hermes_cli import __release_date__, __version__
+
+    upstream = f"Hermes Agent v{__version__} ({__release_date__})"
+    try:
+        from hermes_cli.version_source import read_product_version
+
+        product = read_product_version()
+    except Exception:
+        product = None
+    return f"gugu v{product} · {upstream}" if product else upstream
+
+
 def print_fast_version_info(*, check_updates: bool = True) -> None:
     """THE canonical ``hermes --version`` output (also used by /version).
 
@@ -184,9 +202,7 @@ def print_fast_version_info(*, check_updates: bool = True) -> None:
 
         print(format_banner_version_label())
     except Exception:
-        from hermes_cli import __release_date__, __version__
-
-        print(f"Hermes Agent v{__version__} ({__release_date__})")
+        print(_degraded_version_line())
     print(f"Install directory: {project_root_str()}")
     # Authoritative resolver first (code-scoped stamp → managed → nix → git → pip; also self-heals
     # poisoned shared-home 'docker' stamps); cheap stdlib stamp probe only if it fails.

@@ -71,10 +71,23 @@ def _resolve_git_head_sha(project_root: Path) -> Optional[str]:
     return None
 
 
-def get_code_identity(refresh: bool = False) -> dict:
-    """``{sha, short_sha, version, source}`` for the running checkout; never raises.
+def _read_product_version(project_root: Path) -> Optional[str]:
+    """gugu product version (root ``GUGU_VERSION``) via the version-single-source reader, or None."""
+    try:
+        from hermes_cli.version_source import read_product_version
 
-    Resolution mirrors the banner/dump callsites: live git for source installs, the baked
+        return read_product_version(project_root)
+    except Exception:
+        return None
+
+
+def get_code_identity(refresh: bool = False) -> dict:
+    """``{sha, short_sha, version, product_version, source}`` for the running checkout; never raises.
+
+    ``version`` is the upstream Hermes Agent kernel version from ``pyproject.toml`` (unchanged
+    meaning); ``product_version`` is the gugu product version from ``GUGU_VERSION``, surfaced so
+    runtime-status/update receipts can tell the product line from the kernel line. Resolution
+    mirrors the banner/dump callsites: live git for source installs, the baked
     ``.hermes_build_sha`` for Docker images, else unknown. Cached per process — code identity
     cannot change while a process runs (an updated checkout needs a restart), which is exactly
     the property fleet version verification relies on. Each field degrades to None independently.
@@ -103,6 +116,7 @@ def get_code_identity(refresh: bool = False) -> dict:
         "sha": sha,
         "short_sha": sha[:8] if sha else None,
         "version": version,
+        "product_version": _read_product_version(project_root),
         "source": source}
     return dict(_code_identity_cache)
 
