@@ -40,11 +40,21 @@ def _preflight_request_tokens(
     agent: Any, messages: List[Dict[str, Any]], system_prompt: str
 ) -> int:
     """Token estimate for automatic preflight compression: a valid provider usage anchor,
-    else the checkpoint-pruned native wire payload, else the generic estimator."""
+    else the checkpoint-pruned native wire payload, else the generic estimator.
+
+    Every estimate is recorded through the read-only ``token_meter`` facade: the snapshot
+    lands on ``agent._last_token_measurement`` for observation. The returned figure keeps
+    the established dialect — an anchored value is ``measure``'s ``usage`` baseline, while a
+    missing anchor still prefers the native wire payload over ``measure``'s rough
+    ``estimated`` baseline (that one omits system/tools)."""
     anchored = anchored_context_tokens(messages, getattr(agent, "_usage_anchor", None))
     agent._request_pressure_anchored = anchored is not None
+    from agent.token_meter import measure
+
+    snapshot = measure(messages, log_revision=len(messages), usage=anchored)
+    agent._last_token_measurement = snapshot
     if anchored is not None:
-        return anchored
+        return snapshot.baseline.tokens
     tools = getattr(agent, "tools", None) or None
     try:
         from agent.codex_responses_adapter import estimate_native_responses_preflight_tokens
@@ -335,6 +345,12 @@ def compression_made_progress(
 
 class PreflightCompressionTimedOut(RuntimeError):
     """Raised when an oversized turn cannot safely finish preflight."""
+
+
+class PreflightCompressionBlocked(PreflightCompressionTimedOut):
+    """Raised when compression is blocked (cooldown/anti-thrash) while the request no longer
+    fits the model window, so the provider call must not be sent.
+    """
 
 
 def _fail_closed_after_preflight_timeout(agent, request_tokens: int) -> None:

@@ -327,6 +327,21 @@ def _preflight_compression(
         agent._warn_context_overflow_blocked(
             _compress_block_reason, _preflight_tokens, _compressor.threshold_tokens
         )
+        from agent.conversation_compression import request_exceeds_model_window
+
+        if request_exceeds_model_window(agent, _preflight_tokens) is True:
+            # A request the model cannot accept must not reach the provider just because
+            # compression is temporarily blocked. Only an over-window verdict refuses:
+            # an unknown window or a fitting request keeps the send-as-is behaviour.
+            from agent.turn_context import PreflightCompressionBlocked
+
+            raise PreflightCompressionBlocked(
+                "Context compression is blocked "
+                f"({_compress_block_reason}) while the request (~{_preflight_tokens:,} tokens) "
+                f"still exceeds the model's context window ({_compressor.context_length:,}). "
+                "The provider call was not sent. Run /compress and wait for it to finish, "
+                "or start a new session with /new."
+            )
     else:
         # Sub-threshold and unblocked — re-arm the overflow warning.
         _clear_overflow_warn(agent)
