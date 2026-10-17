@@ -5,6 +5,77 @@
 > 与桌面包 `apps/desktop/package.json` 的 `0.17.6` 是上游内核/桌面包版本，**不随 gugu 版本递增**。
 > 发布 tag 形如 `gugu-vX.Y.Z`，只推 `origin`（fork），**绝不** push `upstream`。
 
+## 0.3.0 — 2026-10-17
+
+- **gugu 版本**：`0.3.0`（根 `GUGU_VERSION`；把 `0.2.0` 已交付但生产零调用的两项能力接入生产热路径，主题明显 → MINOR+1）
+- **上游底座**：hermes-agent `0.21.5`（`pyproject.toml`，**未改动**）；桌面包 `0.17.6`（`apps/desktop/package.json`，**未改动**）
+- **轮型 / run**：优化轮 `gugu-c2-o3`（14 轮流水线第 13/14 轮）
+- **发布 tag**：`gugu-v0.3.0`（annotated；只推 `origin` fork，**绝不** push `upstream`）
+
+### 目标
+
+| 目标 | 主题 | 摘要 |
+| --- | --- | --- |
+| `T-01` | token 计量接入请求前预检 + 阻塞超窗硬拒发 | `_preflight_request_tokens` 首选 `agent.token_meter.measure`：有 usage anchor 时以快照 `baseline.tokens` 为返回值并落快照至 `agent._last_token_measurement`；无 anchor 保留 native → rough fallback（不用 estimated 替代 native）。`_compress_block_reason` 非空且请求**确实超过模型 `context_length`** 时抛 `PreflightCompressionBlocked(PreflightCompressionTimedOut)` 硬拒发，文案含 `/compress` 与 `/new`；窗口内保持 warn + 继续发送 |
+| `T-02` | 统一脱敏接入压缩摘要与 owned 凭据持久化 | `_redact_compaction_text` 改 **unified-first**：先 `secret_redaction.redact_secrets`（vendor/PEM/JWT 整体替换），再旧 `redact_sensitive_text` 归一化 URL 凭据。`credential_persistence` owned 分支按白名单保留 6 键（`agent_key`/`access_token`/`refresh_token`/`api_key`/`token`/`secret`）+ `secret_fingerprint`，白名单外字符串叶子走 `redact_json_string_values`；脱敏器抛错时抛 `CredentialRedactionError` **fail-closed 拒写** |
+
+### 改动文件清单
+
+实施（WS-O1/WS-O2，均先红后绿）：
+
+- `T-01`（WS-O1）
+  - 修改 `agent/turn_context.py`（`PreflightCompressionBlocked`；preflight 内 lazy import `measure` 并落快照）
+  - 修改 `agent/turn_context_compaction.py`（blocked 分支叠加 `request_exceeds_model_window(...) is True` 硬拒发）
+  - 新增 `tests/agent/test_token_meter_wiring.py`（4 例）
+- `T-02`（WS-O2）
+  - 修改 `agent/context_compressor.py`（unified-first 双 pass）
+  - 修改 `agent/credential_persistence.py`（`_OWNED_REFRESH_WHITELIST` / `CredentialRedactionError` / `_redact_owned_value`）
+  - 新增 `tests/agent/test_secret_redaction_wiring.py`（4 例）
+
+发布件（WS-V）：
+
+- 修改 `GUGU_VERSION`（`0.2.0` → `0.3.0`）
+- 修改 `docs/CHANGELOG-gugu.md`（本节）
+- 修改 `README.md`（「## 版本」对照表新增 `gugu-v0.3.0` 行）
+
+### 先红 / 后绿主命令与计数
+
+统一在暂存克隆 `$W = runs/gugu-c2-o3/.scratch/gugu-work`（base `31858545bd565a3ec340dd65cb0fc61279102568` = `gugu-v0.2.0`），解释器 `$W/.venv/bin/python`（Python 3.12.15 + pytest 9.1.1），所有命令 `HERMES_HOME=$(mktemp -d)` + `-p no:cacheprovider` + `--noconftest`：
+
+| 目标 | 主命令 | 先红 | 后绿 | 回归并集 |
+| --- | --- | --- | --- | --- |
+| `T-01` | `pytest -q tests/agent/test_token_meter_wiring.py tests/agent/test_token_meter_snapshot.py` | rc=1，**3 failed / 7 passed**（`measure` 计数=0 ×2、阻塞分支未拒发 ×1） | rc=0，**10 passed / 0 failed**（连跑 2 次一致） | **41 passed / 0 failed** |
+| `T-02` | `pytest -q tests/agent/test_secret_redaction_wiring.py tests/agent/test_secret_redaction.py` | rc=1，**3 failed / 18 passed**（摘要 `redact_secrets` 计数=0、owned 非白名单明文透传、无 fail-closed） | rc=0，**21 passed / 0 failed**（连跑 2 次一致） | **57 passed / 0 failed** |
+
+### 门禁证据（WS-V 真实复跑）
+
+| # | 命令（`cd $W`） | 退出码 | P/F/S | 与基线对比 / 归因 |
+| --- | --- | --- | --- | --- |
+| 1 | `.venv/bin/python -m compileall -q tools agent hermes_cli acp_adapter` | **0** | — | 与基线一致（rc=0） |
+| 2 | `.venv/bin/python -m pytest -q tests/ci --noconftest` | **1** | **120 passed / 4 failed / 0 skipped** | 与基线完全一致（120P/4F）；4 条均为暂存克隆缺 `.github/**` 的环境基线（逐条见 `VERIFY.md §2.1`），**新增失败 = 0** |
+| 3 | `T-01` 主命令（见上表） | **0** | **10 passed / 0 failed** | 达标 |
+| 4 | `T-02` 主命令（见上表） | **0** | **21 passed / 0 failed** | 达标 |
+| 5 | 回归并集：`tests/agent/test_turn_context.py test_turn_context_overflow_warning.py test_over_window_compression_fail_closed.py test_compaction_redaction_boundaries.py test_anthropic_borrowed_row_authority.py tests/hermes_cli/test_auth_commands.py` | **0** | **75 passed / 0 failed** | = WS-O1 回归 41P ∪ WS-O2 回归 57P（去重两主命令既有用例 6P+17P）；**新增失败 = 0** |
+| 6 | `cd apps/desktop && timeout 180 npm run typecheck` | **127** | — | **未完整验证（E15）**：无 `node_modules`、`tsc: not found`；不伪造 PASS。去向：宿主修 root lock 后 `npm ci && npm run typecheck` |
+
+### 回滚方式
+
+- **发布前（当前工作树）**：`git checkout 3185854 -- agent/turn_context.py agent/turn_context_compaction.py agent/context_compressor.py agent/credential_persistence.py GUGU_VERSION docs/CHANGELOG-gugu.md README.md && rm -f tests/agent/test_token_meter_wiring.py tests/agent/test_secret_redaction_wiring.py`（checkout 覆盖 4 个源文件 + 3 个发布件共 7 个修改文件；2 个新测试需删除）。
+- **发布后**：`git -C $W revert <含发布件的提交>`（方案 A「合并实施 + release」或方案 B「T-01/T-02 两提交」，见 `VERIFY.md §5`）；不 force push、不改 `main` 既有历史。
+- 历史摘要**不回改**；无 DB 迁移、无外部依赖/服务/密钥变更。
+
+### 已知限制
+
+1. **`T-01` 硬拒发只覆盖「blocked 且请求超过模型窗口」**：`request_exceeds_model_window` 为 `False`（窗口内）或 `None`（窗口未知）时保持既有 warn + 继续发送，避免把仍可发送的请求提前打死；窗口未知分支未单列断言（由既有回归被动覆盖）。
+2. **`T-02` owned 白名单未逐 provider 核刷新协议**：6 键 + `secret_fingerprint` 取自 `CANDIDATES.md` `preferred` 集合与本轮 `grep`；若某 provider 刷新必需字段不在白名单内，会被改写或 fail-closed 拒写。防回归用例 `test_owned_payload_whitelist_keeps_refresh_fields` 已锁定；发现缺口按 `SPEC §5 E16` 停手升级，不自行扩白名单。
+3. **desktop E15**：无 `node_modules` + root lock 不同步 + `konva@^10.7.1` 不可解析，`npm run typecheck` 未完整验证；去向宿主修 lock 后 `npm ci && npm run typecheck`。
+4. **真实 `gugu-work` 需宿主 fast-forward**：本轮代码落暂存克隆，发布后由宿主执行
+   `git -C /home/a7067567g/下载/deepseek/60-外部仓库/gugu-work fetch origin --tags && git -C /home/a7067567g/下载/deepseek/60-外部仓库/gugu-work merge --ff-only origin/main`。
+
+### 发布状态
+
+本片**只准备发布件**：`GUGU_VERSION` / `docs/CHANGELOG-gugu.md` / `README.md` 已改，tag 名 `gugu-v0.3.0`（annotated）。实际 `git add` / `commit` / `tag` / `push origin` 由主会话 S5 按显式 pathspec 执行；本片**未**在 `$W` 执行任何 `git add/commit/tag/push`、未 `git stash`。详见 `runs/gugu-c2-o3/reports/VERIFY.md`。
+
 ## 0.2.0 — 2026-10-17
 
 - **gugu 版本**：`0.2.0`（根 `GUGU_VERSION`；三个新能力，主题明显 → MINOR+1）
