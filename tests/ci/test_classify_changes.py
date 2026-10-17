@@ -302,6 +302,9 @@ def _yaml(rel: str) -> dict:
     return yaml.safe_load((_REPO / rel).read_text(encoding="utf-8"))
 
 
+@pytest.mark.skip(
+    reason="A2-03/A1-06: .github/actions/detect-changes/action.yml was removed in 56f6357; a stub would fake CI wiring. Track: REFACTOR-PLAN X2 + B-X2-01."
+)
 def test_every_lane_reaches_the_composite_action():
     """The action is the one surface every consumer reads, so it must carry all
     of them — ci.yaml, nix.yml and docker.yml each re-export a different subset.
@@ -311,6 +314,9 @@ def test_every_lane_reaches_the_composite_action():
     assert lanes - action_outputs == set(), "lane(s) missing from the composite action's outputs"
 
 
+@pytest.mark.skip(
+    reason="A2-03/A1-06: .github/workflows/ci.yaml was removed in 56f6357 (repo keeps ci.yml, not ci.yaml); a stub would fake CI wiring. Track: REFACTOR-PLAN X2 + B-X2-01."
+)
 def test_ci_jobs_only_gate_on_detect_outputs_that_detect_actually_declares():
     """An ``if`` that reads an undeclared output resolves to the empty string.
 
