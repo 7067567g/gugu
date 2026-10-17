@@ -8,7 +8,7 @@ import os
 import urllib.parse
 import urllib.request
 from contextlib import asynccontextmanager
-from typing import Dict, Optional, Set
+from typing import Callable, Dict, Optional, Set
 from utils import normalize_proxy_url
 from agent.proxy_bypass import is_loopback_host, should_bypass_proxy
 from agent import runtime_cwd as _runtime_cwd
@@ -109,6 +109,19 @@ def _live_endpoint(server_name: str) -> Optional[tuple[str, dict]]:
         register_vault_redaction_value(endpoint.token)
     headers = {"Authorization": f"Bearer {endpoint.token}"} if endpoint.token else {}
     return endpoint.url, headers
+
+
+def _recover_session_not_found(server_name: str, exc: BaseException, *,
+                               reinitialize: Optional[Callable[[str], None]] = None) -> bool:
+    """Read-only recovery hook for a 404 ``Session not found`` (T-01).
+
+    Invalidates the cached tool schema so the next discovery re-lists tools
+    instead of re-adopting a manifest from a dead session. The caller's reconnect
+    loop owns the actual ``initialize`` re-run. Never raises.
+    """
+    from tools.mcp_liveness import recover_session_not_found
+
+    return recover_session_not_found(server_name, exc, reinitialize=reinitialize)
 
 
 class MCPServerTransportMixin:
@@ -559,6 +572,14 @@ class MCPServerTransportMixin:
         try:
             return await self._serve_transport(transport, label, float(connect_timeout))
         except Exception as exc:
+            # A restarted stateless HTTP server answers 404 "Session not found" to the stale
+            # session id. Invalidate the cached schema so the next discovery re-lists tools
+            # instead of re-adopting a manifest from the dead session; the reconnect ladder
+            # below then re-runs initialize on the rebuilt transport. Read-only and
+            # non-blocking: only the on-disk cache is touched.
+            if _recover_session_not_found(self.name, exc):
+                logger.info("MCP server '%s': server reported an unknown/expired session — invalidated "
+                            "the cached schema; the reconnect will re-initialize", self.name)
             # The SDK folds a non-2xx it cannot parse into ``-32603 Server returned an error response``;
             # the recorder hook kept the status/URL/body the server actually sent (#114350, #113359).
             http_detail = _describe_http_failure(exc, self._http_rejection)
