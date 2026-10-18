@@ -117,17 +117,11 @@ def _project_root() -> Path:
 
 def _load_pyproject_project(root: Path) -> dict | None:
     """``[project]`` table of ``root/pyproject.toml``; ``None`` when missing/unreadable."""
-    pyproject = root / "pyproject.toml"
-    if not pyproject.is_file():
-        return None
-    try:
-        import tomllib
+    # Local import keeps this module import-cheap; ``version_source`` is a stdlib-only leaf,
+    # so this cannot pull a third-party dependency onto the early-recovery path.
+    from hermes_cli.version_source import read_project_table
 
-        with open(pyproject, "rb") as f:
-            project = tomllib.load(f).get("project", {})
-    except Exception:
-        return None
-    return project if isinstance(project, dict) else None
+    return read_project_table(root)
 
 
 def _read_marker_attempts(marker_path: Path) -> int:

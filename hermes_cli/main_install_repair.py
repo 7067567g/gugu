@@ -24,18 +24,14 @@ logger = logging.getLogger("hermes_cli.main")
 def _pyproject_project(debug_fmt: str | None = None) -> dict | None:
     """``[project]`` table of pyproject.toml, or ``None`` when absent/unreadable."""
     from hermes_cli.main import PROJECT_ROOT
-    pyproject = PROJECT_ROOT / "pyproject.toml"
-    if not pyproject.is_file():
-        return None
+    from hermes_cli.version_source import read_project_table
+
     try:
-        import tomllib
-        with pyproject.open("rb") as handle:
-            project = tomllib.load(handle).get("project", {})
+        return read_project_table(PROJECT_ROOT)
     except Exception as exc:
         if debug_fmt:
             logger.debug(debug_fmt, exc)
         return None
-    return project if isinstance(project, dict) else None
 
 
 def _naive_requirement(spec: str) -> tuple[str, str]:

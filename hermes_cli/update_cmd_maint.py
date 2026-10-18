@@ -296,11 +296,10 @@ def _read_project_version() -> str | None:
     """``version`` from the checkout's pyproject.toml (not importlib.metadata, which still
     describes the OLD version after a pull). None on any failure — cosmetic, never breaks."""
     from hermes_cli.update_cmd import _m
+    from hermes_cli.version_source import read_upstream_version
+
     try:
-        import tomllib
-        with open(_m().PROJECT_ROOT / "pyproject.toml", "rb") as fh:  # windows-footgun: ok — binary mode, tomllib requires bytes
-            version = tomllib.load(fh).get("project", {}).get("version")
-        return str(version) if version else None
+        return read_upstream_version(_m().PROJECT_ROOT)
     except Exception:
         return None
 

@@ -5,6 +5,34 @@
 > 与桌面包 `apps/desktop/package.json` 的 `0.17.6` 是上游内核/桌面包版本，**不随 gugu 版本递增**。
 > 发布 tag 形如 `gugu-vX.Y.Z`，只推 `origin`（fork），**绝不** push `upstream`。
 
+## 0.8.0 — 2026-10-18
+
+- **gugu 版本**：`0.8.0`（根 `GUGU_VERSION`；本轮 `audit@v1` 含代码变更 X2 → MINOR+1）
+- **上游底座**：hermes-agent `0.21.5`（`pyproject.toml`，**未改动**）；桌面包 `0.17.6`（`apps/desktop/package.json`，**未改动**）
+- **轮型 / run**：audit 轮 `gugu-l2-x1`（Round 1，loop-2 第 7/7 轮，兼两回环总收口；目标 A-02）
+- **发布 tag**：`gugu-v0.8.0`（annotated；由 MAIN S5 建，只推 `origin` fork，**绝不** push `upstream`）
+
+### X2 — `pyproject.toml [project]` 单源收敛（行为不变，单批可回滚）
+
+| 文件 | old → new | 类型 |
+| --- | --- | --- |
+| `hermes_cli/version_source.py` | 新增 `read_project_table(root)`（`[project]` 表唯一解析器：缺失/不可读/坏 TOML/非 dict → `None`）；`read_upstream_version()` 改为复用它 | 改（行为不变） |
+| `hermes_cli/update_cmd_maint.py` | `_read_project_version()` 内联 `import tomllib` + 解析 → `version_source.read_upstream_version(_m().PROJECT_ROOT)`（保留 `try/except → None`） | 改（行为不变） |
+| `hermes_cli/main_install_repair.py` | `_pyproject_project()` 内联 `tomllib` → `version_source.read_project_table(PROJECT_ROOT)`（保留 `debug_fmt` 日志分支与 `None` 语义） | 改（行为不变） |
+| `hermes_cli/_early_recovery.py` | `_load_pyproject_project(root)` 内联 `tomllib` → `version_source.read_project_table(root)`（局部 import 防环） | 改（行为不变） |
+| `tests/ci/test_gugu_version_source.py` | 新增 6 条机械断言（表等价 / 缺失坏 TOML→`None` / 自定义 root / `read_upstream_version` 复用 / 三模块源码无 `tomllib` / 单源唯一） | 增（机械断言） |
+| `GUGU_VERSION` | `0.7.0` → `0.8.0` | 发布 |
+| `docs/CHANGELOG-gugu.md` | 新增本 `## 0.8.0` 节 | 发布 |
+| `README.md` | 版本表新增 `gugu-v0.8.0` 行 | 发布 |
+
+- **先红 → 后绿**（解释器 `P=runs/gugu-l2-o1/.scratch/venv/bin/python` = `3.12.15`；`HERMES_HOME=$(mktemp -d)` `PYTHONDONTWRITEBYTECODE=1`，`-q --noconftest -p no:cacheprovider`）：
+  - 先红（仅加断言、未改实现）：`tests/ci/test_gugu_version_source.py` → **6 failed / 19 passed，rc=1**（缺 `read_project_table` 且三模块仍含 `tomllib`）。
+  - 后绿（改实现后同命令）：**25 passed，rc=0**。
+- **门禁真值**（`cd gugu-work`，同上解释器）：`tests/ci` **175 passed / 4 skipped / 0 failed，rc=0**（基线 169P/4S/0F）；覆盖率 `--cov=scripts/ci` **TOTAL 2022 stmts / 1152 miss = 43.03%，rc=0**（`COVERAGE_FILE=/tmp/l2x1-ws4.coverage`，门槛 40%）；`compileall` **rc=0**；`scripts/ci/check_design_rules.py` **rc=0**；`tests/hermes_cli/test_update_version_report.py` **7 passed，rc=0**（X2 行为不变旁证）。
+- **行为不变**：`[project]` 表内容等价；缺失/不可读/坏 TOML/非 dict 一律降级 `None`（不抛）；`debug_fmt` 日志分支保留。
+- **回滚（单批）**：`cd ../gugu-work && git checkout 45a9c58d -- hermes_cli/version_source.py hermes_cli/update_cmd_maint.py hermes_cli/main_install_repair.py hermes_cli/_early_recovery.py tests/ci/test_gugu_version_source.py GUGU_VERSION docs/CHANGELOG-gugu.md README.md && git status --porcelain`（期望 0 行）。
+- **未验证**：云上 CI 三类红（PyYAML 缺装 / commandcode models.dev 漂移 / desktop vitest 4F）与 desktop E15 不在本轮修复，只归因并给承接（见 `AUDIT-tests-ci.md`、`CLOSEOUT.md`）。
+
 ## 0.7.0 — 2026-10-18
 
 - **gugu 版本**：`0.7.0`（根 `GUGU_VERSION`；本轮 `optimize@v1` 三目标各「实现 + 接线 + 热路径」三件齐，属新增能力 → MINOR+1）

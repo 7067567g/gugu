@@ -46,6 +46,7 @@ Agent 内核（会话记忆、技能沉淀、子代理、定时任务、终端/�
 | [gugu-v0.5.0](https://github.com/7067567g/gugu/releases/tag/gugu-v0.5.0) | 0.21.5 | 0.17.6 | T-01 CI 全量接线 + 覆盖率门槛 40%；T-02 版本单一事实源 + CLI `gugu v0.5.0` 产品身份；T-03 Design 规则单源 + 编排切片测试 |
 | [gugu-v0.6.0](https://github.com/7067567g/gugu/releases/tag/gugu-v0.6.0) | 0.21.5 | 0.17.6 | audit@v1 全量审核（结构/测试 CI/文档上游发现 100% 处置）+ X1 机械重整：`build_info` 版本解析单源收敛（先红后绿、单批可回滚） |
 | [gugu-v0.7.0](https://github.com/7067567g/gugu/releases/tag/gugu-v0.7.0) | 0.21.5 | 0.17.6 | L2-G01 CI 接线扩容（`pytest-suites`+`desktop-vitest`，口径统一 43.03%）；L2-G02 MCP watchdog 生产装配（slot 生命周期 + 热路径 reconnect）；L2-G03 网关单缝（`_SealedRegistry`）+ 成本单读数（`read_call_cost`/`read_account_usage`） |
+| [gugu-v0.8.0](https://github.com/7067567g/gugu/releases/tag/gugu-v0.8.0) | 0.21.5 | 0.17.6 | audit@v1 loop-2 收口轮：X2 机械重整——`pyproject.toml [project]` 单源收敛（`version_source.read_project_table`，三模块停止各自 `tomllib`；先红后绿、行为不变、单批可回滚） |
 
 ## 快速开始
 

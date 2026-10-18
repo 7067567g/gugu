@@ -192,3 +192,54 @@ def test_manifest_groups_are_declared_once(tmp_path: Path) -> None:
     """The reader is the only place the product version is defined for Python callers."""
     assert _GROUPS == set(version_source.PRODUCT_VERSION_GROUPS)
     assert _SEMVER.fullmatch(_declared_product_version())
+
+
+# --------------------------------------------------------------------------- [project] single parser (X2)
+
+#: Modules that used to re-parse ``pyproject.toml`` ``[project]`` themselves (X2 target).
+_PROJECT_READER_MODULES = {
+    "update_cmd_maint": _ROOT / "hermes_cli" / "update_cmd_maint.py",
+    "main_install_repair": _ROOT / "hermes_cli" / "main_install_repair.py",
+    "_early_recovery": _ROOT / "hermes_cli" / "_early_recovery.py",
+}
+
+
+def test_read_project_table_matches_tomllib() -> None:
+    import tomllib
+
+    with open(_ROOT / "pyproject.toml", "rb") as fh:
+        expected = tomllib.load(fh)["project"]
+    assert version_source.read_project_table(_ROOT) == expected
+
+
+def test_read_project_table_from_custom_root(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "x"\nversion = "1.2.3"\n', encoding="utf-8"
+    )
+    assert version_source.read_project_table(tmp_path) == {"name": "x", "version": "1.2.3"}
+
+
+def test_read_project_table_missing_or_broken_is_none(tmp_path: Path) -> None:
+    assert version_source.read_project_table(tmp_path) is None
+    (tmp_path / "pyproject.toml").write_text("[project\nversion =", encoding="utf-8")
+    assert version_source.read_project_table(tmp_path) is None
+
+
+def test_read_project_table_non_table_project_is_none(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text('project = "nope"\n', encoding="utf-8")
+    assert version_source.read_project_table(tmp_path) is None
+
+
+def test_read_upstream_version_reuses_read_project_table(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(version_source, "read_project_table", lambda *a, **k: {"version": "9.9.9"})
+    assert version_source.read_upstream_version(_ROOT) == "9.9.9"
+    monkeypatch.setattr(version_source, "read_project_table", lambda *a, **k: None)
+    assert version_source.read_upstream_version(_ROOT) is None
+
+
+def test_project_table_has_a_single_parser() -> None:
+    """X2: the three former re-parsers route through ``version_source`` (no ``tomllib``)."""
+    assert hasattr(version_source, "read_project_table")
+    for name, path in _PROJECT_READER_MODULES.items():
+        src = path.read_text(encoding="utf-8")
+        assert "tomllib" not in src, f"{name} still parses pyproject.toml itself"

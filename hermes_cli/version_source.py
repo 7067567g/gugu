@@ -48,15 +48,29 @@ def read_product_version(root: Optional[Path] = None) -> Optional[str]:
     return text if _SEMVER.fullmatch(text) else None
 
 
-def read_upstream_version(root: Optional[Path] = None) -> Optional[str]:
-    """The upstream kernel version from ``root/pyproject.toml`` ``[project].version``, or ``None``."""
+def read_project_table(root: Optional[Path] = None) -> Optional[dict]:
+    """The ``[project]`` table of ``root/pyproject.toml``, or ``None``.
+
+    The one parser of the kernel manifest for Python callers: a missing/unreadable file,
+    broken TOML or a non-table ``[project]`` all degrade to ``None`` — never raise. Callers
+    that only need the version use :func:`read_upstream_version`; this is the shared seam.
+    """
     try:
         import tomllib
 
         with open(_root(root) / UPSTREAM_VERSION_FILE, "rb") as handle:  # windows-footgun: ok — binary mode, tomllib requires bytes
-            raw = tomllib.load(handle).get("project", {}).get("version")
+            project = tomllib.load(handle).get("project", {})
     except Exception:
         return None
+    return project if isinstance(project, dict) else None
+
+
+def read_upstream_version(root: Optional[Path] = None) -> Optional[str]:
+    """The upstream kernel version from ``root/pyproject.toml`` ``[project].version``, or ``None``."""
+    project = read_project_table(root)
+    if not project:
+        return None
+    raw = project.get("version")
     return str(raw) if raw else None
 
 
