@@ -26,6 +26,9 @@
 - `tests/`、`scripts/`、`evals/` 不是“没有类”，是 **P**。
 - `docs/`、`assets/`、`locales/` 等无 Python import 面的目录是 **unclassified**
   （显式登记 + 理由），不是四类之一，也不参与违规判定。
+- `arch/` 是账本/基线自身的数据目录（只含 YAML/JSON，0 个 `.py`），不进入 import 图，
+  因此不登记为模块；它的“覆盖”由 7092 个 `.py` 全部匹配到规则来保证，而不是靠一条
+  伪模块规则。
 
 ---
 
@@ -108,7 +111,8 @@ checker 对涉及 unclassified 的边**只计数、不判违规**；但某个 `.
    函数放 K 或 G 取决于调用方与语义归属；不要因为“大家都用”就塞进 K。
 2. **“被 K import”不等于 K**：这是违规信号，不是分类依据。见 §0。
 3. **“先标 unclassified 以后再说”不是免死金牌**：必须写理由 + 归属 owner + 复核
-   里程碑（当前 7 个数据目录已有理由；新增 unclassified 要在 PR 里说明何时重判）。
+   里程碑（当前 7 个无代码数据目录已有理由；`arch/` 是账本自身目录、无 `.py`，不登记；
+   新增 unclassified 要在 PR 里说明何时重判）。
 
 ---
 
@@ -157,6 +161,9 @@ checker 对涉及 unclassified 的边**只计数、不判违规**；但某个 `.
 - **基线内旧违规不会让门变红**：1562 条是 seed 现状，不是“可接受目标”；棘轮只减不增。
 - **退出码**：`0` 基线内；`1` 违规增长；`2` 配置/扫描错误（账本非法、缺 baseline、
   有 `.py` 未归类、PyYAML 缺失）。
+- **parse_error 不是 exit 2**：首方文件语法错误只记录并打印
+  （`parse errors (skipped, not a gate failure)`），不参与 class pair 比较；当前
+  `parse_errors=0`。是否让首方 parse_error 直接报错（避免语法坏文件漏扫）留 P1 决定。
 - **规则漂移**：`architecture.yaml` 的 sha256 与 baseline 不一致时只打 WARN，计数照常比较；
   改规则后应显式重 seed（§5.3）。
 
@@ -266,7 +273,9 @@ python3 scripts/arch/check_boundaries.py --baseline arch/baseline.json \
 ## 7. 与后续阶段的关系
 
 - **r01（已完成）**：账本 + ast checker + 棘轮基线 + 正负自测。
-- **r02（本轮）**：CI 接线 + 本文档。
+- **r02（已完成）**：CI 接线 + 本文档。
+- **r03（已完成）**：独立复核（基线内 gate 绿 + 新违规负样例红 + 账本覆盖/基线数字/
+  CI 语法与触发路径/改动边界审计）；P0 阶段收口，未改账本与基线。
 - **P5**：`hermes_cli/` 里的 K 服务（config/auth/models/version_source）搬进 `kernel/`
   并留 shim；届时按 §5.3 下调基线。
 - **P6**：`contracts/` 契约版本化 + `plugins/<id>/` 单一 manifest；X→G 的 484 条按
