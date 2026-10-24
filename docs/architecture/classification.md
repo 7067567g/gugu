@@ -282,3 +282,5 @@ python3 scripts/arch/check_boundaries.py --baseline arch/baseline.json \
   契约逐步消化。
 - 本文档不承诺“清零”1562 条存量违规；棘轮的目标是**只减不增**，每一步下降都有 commit
   与 reason 可审。
+- **长线计划**：上游 re-baseline（v0.22.5）、产线化 P1–P3、工作流适配与停止条件，见
+  [`prodline/LONG-LINE-PLAN.md`](prodline/LONG-LINE-PLAN.md)。
