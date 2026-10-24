@@ -516,6 +516,7 @@ class Comparison:
     improvements: list[dict[str, Any]] = field(default_factory=list)
     missing_pairs: list[str] = field(default_factory=list)
     baseline_counts: dict[str, int] = field(default_factory=dict)
+    module_regressions: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -549,6 +550,14 @@ def compare(scan: ScanResult, baseline: dict[str, Any]) -> Comparison:
             cmp.regressions.append({"pair": pair, "current": cur, "baseline": base, "delta": cur - base})
         elif cur < base:
             cmp.improvements.append({"pair": pair, "current": cur, "baseline": base, "delta": base - cur})
+    # Class pairs are the gate; module pairs are a locator.  A relocated import can
+    # keep the class total flat, so surfacing the module delta matters for review.
+    base_modules = baseline.get("module_counts") or {}
+    for key, cur in scan.module_counts().items():
+        base = int(base_modules.get(key, 0))
+        if cur > base:
+            cmp.module_regressions.append({"pair": key, "current": cur, "baseline": base, "delta": cur - base})
+    cmp.module_regressions.sort(key=lambda r: (-r["delta"], r["pair"]))
     return cmp
 
 
@@ -588,6 +597,7 @@ def receipt(scan: ScanResult, cmp: Comparison | None, verdict: str) -> dict[str,
         "top_offenders": scan.top_offenders(),
         "regressions": cmp.regressions if cmp else [],
         "improvements": cmp.improvements if cmp else [],
+        "module_regressions": cmp.module_regressions if cmp else [],
         "unclassified_edges": dict(sorted(scan.unclassified_edges.items())),
         "parse_error_samples": [
             {"file": e.file, "line": e.line, "message": e.message}
@@ -641,10 +651,19 @@ def print_text(scan: ScanResult, cmp: Comparison | None, verdict: str, limit: in
         print("  top offenders (source->target: count):")
         for src, dst, n in scan.top_offenders():
             print(f"    {src}->{dst}: {n}")
+    if scan.violations and (cmp is None or cmp.ok):
+        shown = scan.violations[: max(0, limit)]
+        print(f"  violation sample (first {len(shown)}; full list via --format json):")
+        for v in shown:
+            print(f"    {v.file}:{v.line} -> {v.target_module} ({v.source_class}->{v.target_class})")
     if cmp and cmp.regressions:
         print("  regressions:")
         for r in cmp.regressions:
             print(f"    {r['pair']}: {r['current']} > baseline {r['baseline']} (+{r['delta']})")
+        if cmp.module_regressions:
+            print("  module pairs above baseline (locate the growth):")
+            for r in cmp.module_regressions[:10]:
+                print(f"    {r['pair']}: {r['current']} > {r['baseline']} (+{r['delta']})")
         pairs = {r["pair"] for r in cmp.regressions}
         shown = 0
         print("  sample violations for regressed pairs (file:line -> target):")
