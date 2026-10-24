@@ -1,0 +1,364 @@
+# gugu architecture classification ledger (single source of truth for import boundaries)
+#
+# 分类法：K 基础 / X 扩展 / G 胶水 / P 产线工具。判定清单与依据见
+# docs/architecture/classification.md（r02 落地）与
+# /home/a7067567g/下载/deepseek/月月bot/gugu-prodline-arch-plan-20261025.md §3。
+#
+# 铁律：目录不决定类，本账本决定类。规则按顺序匹配，first match wins。
+# 迁移期目录会撒谎（hermes_cli/ 里混着真内核），所以整包归类，细分 override 留到 P5，
+# 本轮不做“猜测式”细分。
+#
+# 维护纪律：
+#   1. 新增顶层模块必须在本文件 modules 里登记；checker 对未覆盖的 .py 直接报配置错误。
+#   2. 无法归类的模块必须写 class: unclassified + reason，禁止猜一个类。
+#   3. 违规计数只允许通过 `check_boundaries.py --update-baseline --reason ...` 更新。
+
+schema: gugu.architecture/v1
+updated: "2026-10-25"
+base_commit: "6737fff0"
+maintainer: MAIN
+
+scan:
+  extensions: [".py"]
+  # 生成物 / 虚拟环境 / 依赖目录，不属于首方 import 图
+  exclude_dirs:
+    - .git
+    - .venv
+    - venv
+    - node_modules
+    - __pycache__
+    - .pytest_cache
+    - .pytest-cache
+    - .mypy_cache
+    - .ruff_cache
+    - dist
+    - build
+    - hermes_agent.egg-info
+    - site-packages
+
+# 四类的职责与默认边。modules 里的 allowed_deps/forbidden_deps 必须与这里一致，
+# checker 在加载时校验（防止两处规则漂移）。
+classes:
+  K:
+    name: 基础（kernel / core services）
+    owner: kernel-group
+    description: >-
+      定义产品语义、持有跨请求状态：会话、turn、压缩、工具运行时、审批、provider 路由、
+      状态持久化、配置/认证/模型目录（后三者当前住在 hermes_cli/，P5 搬入 kernel/）。
+    allowed_deps: [K]
+    forbidden_deps: [X, G, P]
+  X:
+    name: 扩展（extensions）
+    owner: plugin-authors
+    description: >-
+      由第三方按版本独立交付、可单独安装/禁用/升级：具体厂商、平台、技能、UI 面。
+      当前扩展实际插在宿主实现里（X→G 613 行首口径），本账本先如实记录，不粉饰。
+    allowed_deps: [K, X]
+    forbidden_deps: [G, P]
+  G:
+    name: 胶水（glue）
+    owner: glue-group
+    description: >-
+      只做翻译与承载、不自持领域规则：CLI/TUI、JSON-RPC/REST 宿主、平台适配器、
+      Electron 壳。允许向下依赖 K，允许承载 X。
+    allowed_deps: [G, K, X]
+    forbidden_deps: [P]
+  P:
+    name: 产线工具（prodline）
+    owner: release-manager
+    description: >-
+      只在构建/安装/验收/取证/测试/文档构建时运行，产品进程永不 import：
+      脚本、测试、离线 eval、打包与 CI 资产。可只读依赖任意层。
+    allowed_deps: [P, K, X, G]
+    forbidden_deps: []
+  unclassified:
+    name: 未归类
+    owner: TBD
+    description: >-
+      当前无法按 K/X/G/P 判据给出可信归类，或根本不是代码模块。显式登记、写明理由，
+      checker 不对涉及 unclassified 的边做违规判定（不猜）。
+    allowed_deps: []
+    forbidden_deps: []
+
+# ---------------------------------------------------------------------------
+# 模块登记（ordered, first match wins）
+# paths 为相对仓库根的 glob；一个模块可以有多条 path 模式。
+# ---------------------------------------------------------------------------
+modules:
+  # ============================== K 基础 ==================================
+  - id: agent
+    paths: ["agent/**"]
+    class: K
+    owner: kernel-group
+    allowed_deps: [K]
+    forbidden_deps: [X, G, P]
+    note: "turn loop / providers / memory / compression / prompt builder"
+
+  - id: tools
+    paths: ["tools/**"]
+    class: K
+    owner: kernel-group
+    allowed_deps: [K]
+    forbidden_deps: [X, G, P]
+    note: "工具实现与运行时；import plugins.* 属真渗漏，已进基线"
+
+  - id: providers
+    paths: ["providers/**"]
+    class: K
+    owner: kernel-group
+    allowed_deps: [K]
+    forbidden_deps: [X, G, P]
+
+  - id: hermes_platform
+    paths: ["hermes_platform/**"]
+    class: K
+    owner: kernel-group
+    allowed_deps: [K]
+    forbidden_deps: [X, G, P]
+    note: "机器事实 / 资源解析，K 服务"
+
+  - id: cron
+    paths: ["cron/**"]
+    class: K
+    owner: kernel-group
+    allowed_deps: [K]
+    forbidden_deps: [X, G, P]
+    note: "调度器持有 job 状态，属跨请求状态 → K"
+
+  - id: root_kernel
+    paths:
+      - "run_agent.py"
+      - "model_tools.py"
+      - "toolsets.py"
+      - "toolset_distributions.py"
+      - "utils.py"
+      - "hermes_constants*.py"
+      - "hermes_logging.py"
+      - "hermes_time.py"
+      - "hermes_state*.py"
+      - "registration_lifecycle.py"
+    class: K
+    owner: kernel-group
+    allowed_deps: [K]
+    forbidden_deps: [X, G, P]
+    note: "根级门面/内核服务（含 hermes_state* 21 个 sibling）"
+
+  # ============================== X 扩展 ==================================
+  - id: plugins
+    paths: ["plugins/**"]
+    class: X
+    owner: plugin-authors
+    allowed_deps: [K, X]
+    forbidden_deps: [G, P]
+    note: "106 个 plugin.yaml；反向吃 gateway/platforms 与 hermes_cli 内部，已进基线"
+
+  - id: skills
+    paths: ["skills/**"]
+    class: X
+    owner: plugin-authors
+    allowed_deps: [K, X]
+    forbidden_deps: [G, P]
+
+  - id: optional-skills
+    paths: ["optional-skills/**"]
+    class: X
+    owner: plugin-authors
+    allowed_deps: [K, X]
+    forbidden_deps: [G, P]
+
+  - id: optional-mcps
+    paths: ["optional-mcps/**"]
+    class: X
+    owner: plugin-authors
+    allowed_deps: [K, X]
+    forbidden_deps: [G, P]
+    note: "随仓分发但不默认启用的 MCP server（当前无 .py）"
+
+  # ============================== G 胶水 ==================================
+  - id: hermes_cli
+    paths: ["hermes_cli/**"]
+    class: G
+    owner: glue-group
+    allowed_deps: [G, K, X]
+    forbidden_deps: [P]
+    note: >-
+      整包归 G：CLI 入口 + HTTP 服务端 + 插件加载器。但 config/auth/models/
+      providers/version_source 等是真 K 服务（被 agent 用 103 次）；按 P5 搬入 kernel/
+      并留 re-export shim。本轮不做 per-file override，避免用粒度掩盖 442 处事实。
+
+  - id: gateway
+    paths: ["gateway/**"]
+    class: G
+    owner: glue-group
+    allowed_deps: [G, K, X]
+    forbidden_deps: [P]
+    note: "消息网关 = 传输宿主 + 平台适配器；gateway/platforms/base 未来提升为 contracts/"
+
+  - id: tui_gateway
+    paths: ["tui_gateway/**"]
+    class: G
+    owner: glue-group
+    allowed_deps: [G, K, X]
+    forbidden_deps: [P]
+    note: "TUI/Desktop 的 Python JSON-RPC 后端"
+
+  - id: acp_adapter
+    paths: ["acp_adapter/**"]
+    class: G
+    owner: glue-group
+    allowed_deps: [G, K, X]
+    forbidden_deps: [P]
+    note: "ACP 协议宿主（VS Code / Zed / JetBrains）"
+
+  - id: apps
+    paths: ["apps/**"]
+    class: G
+    owner: glue-group
+    allowed_deps: [G, K, X]
+    forbidden_deps: [P]
+    note: "Electron/Tauri 壳（TS 为主）；4 个 .py 为 test/fixture/perf 辅助"
+
+  - id: ui-tui
+    paths: ["ui-tui/**"]
+    class: G
+    owner: glue-group
+    allowed_deps: [G, K, X]
+    forbidden_deps: [P]
+    note: "Ink (React) 终端 UI，当前无 .py"
+
+  - id: web
+    paths: ["web/**"]
+    class: G
+    owner: glue-group
+    allowed_deps: [G, K, X]
+    forbidden_deps: [P]
+    note: "dashboard SPA，当前无 .py"
+
+  - id: root_glue
+    paths:
+      - "cli.py"
+      - "batch_runner.py"
+      - "mcp_serve.py"
+      - "hermes_bootstrap.py"
+      - "hermes_startup_watchdog.py"
+    class: G
+    owner: glue-group
+    allowed_deps: [G, K, X]
+    forbidden_deps: [P]
+    note: "根级入口/宿主：CLI、批量入口、MCP stdio server、进程 bootstrap、启动看门狗"
+
+  # ============================= P 产线工具 ===============================
+  - id: scripts
+    paths: ["scripts/**"]
+    class: P
+    owner: release-manager
+    allowed_deps: [P, K, X, G]
+    forbidden_deps: []
+    note: "安装/CI/门禁/生成器；含本轮 scripts/arch/"
+
+  - id: tests
+    paths: ["tests/**"]
+    class: P
+    owner: release-manager
+    allowed_deps: [P, K, X, G]
+    forbidden_deps: []
+
+  - id: evals
+    paths: ["evals/**"]
+    class: P
+    owner: release-manager
+    allowed_deps: [P, K, X, G]
+    forbidden_deps: []
+    note: "离线 benchmark harness，只在评测时运行，产品不 import"
+
+  - id: website
+    paths: ["website/**"]
+    class: P
+    owner: release-manager
+    allowed_deps: [P, K, X, G]
+    forbidden_deps: []
+    note: "Docusaurus 文档站构建/校验脚本"
+
+  - id: docker
+    paths: ["docker/**"]
+    class: P
+    owner: release-manager
+    allowed_deps: [P, K, X, G]
+    forbidden_deps: []
+    note: "打包资产，当前无 .py"
+
+  - id: nix
+    paths: ["nix/**"]
+    class: P
+    owner: release-manager
+    allowed_deps: [P, K, X, G]
+    forbidden_deps: []
+    note: "打包资产，当前无 .py"
+
+  - id: tests-js
+    paths: ["tests-js/**"]
+    class: P
+    owner: release-manager
+    allowed_deps: [P, K, X, G]
+    forbidden_deps: []
+    note: "JS 测试，当前无 .py"
+
+  - id: root_prodline
+    paths:
+      - "setup.py"
+      - "mini_swe_runner.py"
+      - "trajectory_compressor.py"
+    class: P
+    owner: release-manager
+    allowed_deps: [P, K, X, G]
+    forbidden_deps: []
+    note: "打包守卫、离线 SWE 运行器、轨迹压缩器；产品进程不 import"
+
+  # ============================ unclassified ==============================
+  # 以下条目显式不归类。它们不是 import 图节点（无 .py），登记的目的是让“覆盖全部
+  # 顶层路径”可审计，而不是假装它们属于四类之一。
+  - id: docs
+    paths: ["docs/**"]
+    class: unclassified
+    owner: TBD
+    reason: "文档正文，无 Python import 面；不是 K/X/G/P 代码模块。归类留待 P5 目录治理。"
+
+  - id: assets
+    paths: ["assets/**"]
+    class: unclassified
+    owner: TBD
+    reason: "静态资源，无代码/无 import 面。"
+
+  - id: locales
+    paths: ["locales/**"]
+    class: unclassified
+    owner: TBD
+    reason: >-
+      运行时 i18n 数据（yaml），被 gateway/UI 读取但不是 Python 模块；算 G 数据还是 X 资源
+      缺少判据，不猜。
+
+  - id: contributors
+    paths: ["contributors/**"]
+    class: unclassified
+    owner: TBD
+    reason: "贡献者元数据，无 import 面。"
+
+  - id: plugin-catalog
+    paths: ["plugin-catalog/**"]
+    class: unclassified
+    owner: TBD
+    reason: >-
+      插件市场/发现用的 catalog 元数据，被插件加载路径消费；它既不是 X 实现，也不是 K
+      注册表本体，归属等 P6 扩展契约（gugu.extension/v1）再定。
+
+  - id: native
+    paths: ["native/**"]
+    class: unclassified
+    owner: TBD
+    reason: "原生扩展源码（fts5_cjk），无 Python import 面。"
+
+  - id: LICENSES
+    paths: ["LICENSES/**"]
+    class: unclassified
+    owner: TBD
+    reason: "许可证文本，无代码。"
