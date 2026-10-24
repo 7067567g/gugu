@@ -52,7 +52,7 @@ checker 对涉及 unclassified 的边**只计数、不判违规**；但某个 `.
 
 行 = import 方，列 = 被 import 方；✅ 允许，❌ 禁止。
 
-| from \ to | **K** | **X** | **G** | **P** |
+| import 方 ↓ / 被 import 方 → | **K** | **X** | **G** | **P** |
 |---|---|---|---|---|
 | **K** | ✅ | ❌ | ❌ | ❌ |
 | **X** | ✅ | ✅ | ❌ | ❌ |
@@ -62,8 +62,8 @@ checker 对涉及 unclassified 的边**只计数、不判违规**；但某个 `.
 - 未列出的 `unclassified` 行/列：**不判定**（计 `unclassified_edges`，见 §5.4）。
 - 矩阵与 checker 的 `forbidden_pairs()` 必须同源：**K→X、K→G、K→P、X→G、X→P、G→P**
   这 6 对是门禁唯一会比较的 pair。`arch/architecture.yaml` 的 `classes.*.allowed_deps`
-  与 `forbidden_deps` 是矩阵的机器可读版本；每个 module 条目必须逐字重复所属类的
-  允许/禁止列表，加载时不一致直接 exit 2（防止两处规则漂移）。
+  与 `forbidden_deps` 是矩阵的机器可读版本；每个 module 条目的这两个列表必须与所属类
+  集合相等，加载时不一致直接 exit 2（防止两处规则漂移）。
 - **方向解释**：
   - **X→G 禁止、G→X 允许**：G 负责承载 X，X 只能依赖 K 的契约。X 若需要 G 的内部
     实现，说明契约缺失——把公共面提升到 `contracts/`（K），而不是反向依赖。
