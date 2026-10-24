@@ -1,0 +1,162 @@
+# A1 closeout gates — gugu-reb-r03a-driftclose
+generated_at: 2026-10-24T23:26:37Z
+repo: /home/a7067567g/下载/deepseek/60-外部仓库/gugu-work
+HEAD: ad075a583800ecf6e62fc127375c4ba17fef2d63
+BASE: 55300bffe9462b723e9fa10961b98a9d5e98aea1
+mirror: /home/a7067567g/下载/deepseek/60-外部仓库/hermes-upstream
+env: GIT_NO_LAZY_FETCH=1; HTTPS_PROXY/HTTP_PROXY/ALL_PROXY=http://127.0.0.1:9 (no network)
+
+### tag commit (offline)
+$ git -C /home/a7067567g/下载/deepseek/60-外部仓库/hermes-upstream rev-parse v0.22.5^{commit}
+bf0203a794a07aac3ff764972ab9087baa4e4f4e
+[exit=0]
+
+### python syntax smoke (tools unchanged)
+$ .venv/bin/python -m py_compile scripts/upstream/check_symbol_drift.py scripts/upstream/lock_upstream.py
+[exit=0]
+
+### mirror 32/32 recheck
+$ .venv/bin/python -
+mirror blobs present+tree-bound: 32/32
+[exit=0]
+
+### allowlist is empty and schema kept
+$ .venv/bin/python -
+schema= gugu.symbol-drift-allowlist/v1
+entries= 0
+cleared_at= 2026-10-24T23:25:30Z
+previous_entry_count= 175
+[exit=0]
+
+### symbol drift gate
+$ .venv/bin/python scripts/upstream/check_symbol_drift.py --check
+tag=v0.22.5 commit=bf0203a794a07aac3ff764972ab9087baa4e4f4e expected=bf0203a794a07aac3ff764972ab9087baa4e4f4e match=True
+files=35 imports=1427 resolved=918 drift=18 allowlisted=0 unresolved=0 skipped=491
+drift kinds={'SYMBOL-GONE': 15, 'SYMBOL-NEVER-AT-BASE': 1, 'MODULE-GONE': 2}
+OK drift gate passes (0 unresolved, allowlist valid, tag exact)
+[exit=0]
+
+### upstream lock check
+$ .venv/bin/python scripts/upstream/lock_upstream.py --check
+tag=v0.22.5 object=56b6a31fededdf7364e1a0a79548d144e7fd81a3 (tag)
+commit=bf0203a794a07aac3ff764972ab9087baa4e4f4e expected=bf0203a794a07aac3ff764972ab9087baa4e4f4e verified=True
+local_ref=refs/remotes/hermes/v0.22.5 matches=True
+hermes remote fetch=/home/a7067567g/下载/deepseek/60-外部仓库/hermes-upstream push=DISABLED
+OK /home/a7067567g/下载/deepseek/60-外部仓库/gugu-work/arch/upstream.lock matches the verified tag/commit and remote semantics
+[exit=0]
+
+### rebase manifest ratchet
+$ .venv/bin/python scripts/upstream/build_rebase_manifest.py --check
+kernel files=35 (M=26 A=9) +2215/-65
+modified +774 new +1441
+gugu tests=18 +3114
+OK all manifest checks pass
+[exit=0]
+
+### upstream tooling self-tests
+$ .venv/bin/python -m unittest discover -s scripts/upstream/tests -v
+test_aggregate_unresolved_groups_paths (test_upstream_tools.AllowlistTests.test_aggregate_unresolved_groups_paths) ... ok
+test_validate_allowlist_requires_three_fields (test_upstream_tools.AllowlistTests.test_validate_allowlist_requires_three_fields) ... ok
+test_collects_absolute_relative_and_type_checking (test_upstream_tools.ImportTests.test_collects_absolute_relative_and_type_checking) ... ok
+test_module_symbols_ignore_function_locals (test_upstream_tools.ImportTests.test_module_symbols_ignore_function_locals) ... ok
+test_module_symbols_returns_none_on_parse_error (test_upstream_tools.ImportTests.test_module_symbols_returns_none_on_parse_error) ... ok
+test_resolve_relative_parent (test_upstream_tools.ImportTests.test_resolve_relative_parent) ... ok
+test_parse_remote_v_strips_partial_clone_annotation (test_upstream_tools.LockTests.test_parse_remote_v_strips_partial_clone_annotation) ... ok
+test_check_counts_accepts_ratchet (test_upstream_tools.ManifestTests.test_check_counts_accepts_ratchet) ... ok
+test_check_counts_rejects_drift (test_upstream_tools.ManifestTests.test_check_counts_rejects_drift) ... ok
+test_parse_name_status (test_upstream_tools.ManifestTests.test_parse_name_status) ... ok
+test_parse_numstat_handles_binary_dash (test_upstream_tools.ManifestTests.test_parse_numstat_handles_binary_dash) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.002s
+
+OK
+[exit=0]
+
+### arch boundaries gate
+$ .venv/bin/python scripts/arch/check_boundaries.py --baseline arch/baseline.json
+arch-gate: repo=/home/a7067567g/下载/deepseek/60-外部仓库/gugu-work commit=ad075a5838
+  ledger sha256=d1a4302e3943710e… files=7096 imports=92036 violations=1562
+  forbidden pairs (current / baseline):
+    K->X         26 / 26      OK
+    K->G       1052 / 1052    OK
+    K->P          0 / 0       OK
+    X->G        484 / 484     OK
+    X->P          0 / 0       OK
+    G->P          0 / 0       OK
+  top offenders (source->target: count):
+    agent->hermes_cli: 442
+    tools->hermes_cli: 301
+    plugins->hermes_cli: 266
+    plugins->gateway: 218
+    tools->gateway: 109
+    cron->hermes_cli: 63
+    root_kernel->hermes_cli: 46
+    cron->gateway: 40
+    agent->gateway: 25
+    tools->plugins: 22
+    tools->tui_gateway: 6
+    providers->hermes_cli: 5
+    root_kernel->root_glue: 5
+    root_kernel->gateway: 4
+    agent->plugins: 3
+  violation sample (first 25; full list via --format json):
+    agent/account_usage.py:12 -> hermes_cli (K->G)
+    agent/account_usage.py:13 -> hermes_cli (K->G)
+    agent/account_usage.py:141 -> hermes_cli (K->G)
+    agent/account_usage.py:183 -> hermes_cli (K->G)
+    agent/account_usage.py:200 -> hermes_cli (K->G)
+    agent/account_usage.py:290 -> hermes_cli (K->G)
+    agent/account_usage.py:523 -> hermes_cli (K->G)
+    agent/agent_init.py:40 -> hermes_cli (K->G)
+    agent/agent_init.py:41 -> hermes_cli (K->G)
+    agent/agent_init.py:42 -> hermes_cli (K->G)
+    agent/agent_init.py:86 -> hermes_cli (K->G)
+    agent/agent_init.py:97 -> hermes_cli (K->G)
+    agent/agent_init.py:98 -> hermes_cli (K->G)
+    agent/agent_init.py:99 -> hermes_cli (K->G)
+    agent/agent_init.py:124 -> hermes_cli (K->G)
+    agent/agent_init.py:131 -> hermes_cli (K->G)
+    agent/agent_init.py:376 -> hermes_cli (K->G)
+    agent/agent_init.py:406 -> hermes_cli (K->G)
+    agent/agent_init.py:418 -> hermes_cli (K->G)
+    agent/agent_init.py:426 -> hermes_cli (K->G)
+    agent/agent_init.py:453 -> hermes_cli (K->G)
+    agent/agent_init.py:457 -> hermes_cli (K->G)
+    agent/agent_init.py:466 -> hermes_cli (K->G)
+    agent/agent_init.py:473 -> hermes_cli (K->G)
+    agent/agent_init.py:671 -> hermes_cli (K->G)
+  verdict: baseline-ok
+[exit=0]
+
+### baseline diff stat
+$ git diff 55300bffe9462b723e9fa10961b98a9d5e98aea1 --stat
+ arch/upstream.lock                            | 101 ++++
+ reports/drift-reconciliation.md               |  73 +++
+ reports/drift-v0.22.5.json                    | 338 +++++++++++++
+ reports/gate-r01.txt                          | 149 ++++++
+ reports/rebase-manifest.json                  | 589 ++++++++++++++++++++++
+ reports/upstream-remote.md                    | 107 ++++
+ scripts/upstream/README.md                    |  42 ++
+ scripts/upstream/build_rebase_manifest.py     | 221 +++++++++
+ scripts/upstream/check_symbol_drift.py        | 671 ++++++++++++++++++++++++++
+ scripts/upstream/lock_upstream.py             | 199 ++++++++
+ scripts/upstream/symbol-drift-allowlist.json  |  16 +
+ scripts/upstream/tests/test_upstream_tools.py | 144 ++++++
+ 12 files changed, 2650 insertions(+)
+[exit=0]
+
+### worktree status (pre-commit)
+$ git status --porcelain
+ M arch/upstream.lock
+ M reports/drift-v0.22.5.json
+ M scripts/upstream/symbol-drift-allowlist.json
+?? reports/drift-delta-r03a.md
+?? reports/gates-r03a.txt
+?? reports/mirror-integrity-v0.22.5.json
+?? reports/mirror-integrity-v0.22.5.txt
+[exit=0]
+
+### product-code diff vs HEAD (pre-commit)
+$ git diff --name-only HEAD -- agent tools hermes_cli gateway tui_gateway run_agent.py cli.py model_tools.py hermes_constants.py
+[exit=0]

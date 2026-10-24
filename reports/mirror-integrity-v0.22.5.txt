@@ -1,0 +1,44 @@
+# Mirror integrity — v0.22.5 minimum offline closure set (32 modules)
+
+generated_at : 2026-10-24T23:25:28Z
+mirror       : /home/a7067567g/下载/deepseek/60-外部仓库/hermes-upstream
+tag          : v0.22.5 = bf0203a794a07aac3ff764972ab9087baa4e4f4e
+env          : GIT_NO_LAZY_FETCH=1 + proxies pointed at 127.0.0.1:9 (no network)
+checks       : git ls-tree v0.22.5 -- <path> == expected sha; git cat-file -e/-t/-s
+
+| # | module | path | tag blob | ls-tree | cat-file -e | type | bytes |
+| ---: | --- | --- | --- | --- | --- | --- | ---: |
+| 1 | `agent.skill_commands` | `agent/skill_commands.py` | `b46661c70c328491318043b2826fedff7725e4f3` | MATCH | PRESENT | blob | 52430 |
+| 2 | `agent.vault_backends.unlock` | `agent/vault_backends/unlock.py` | `ee2bb090a6b422c542fef0f0d4ed82e3aeda247b` | MATCH | PRESENT | blob | 6409 |
+| 3 | `cli` | `cli.py` | `23c7c5a40e588c772a1879def18c05311a2be67f` | MATCH | PRESENT | blob | 82560 |
+| 4 | `gateway.platforms.base` | `gateway/platforms/base.py` | `b1ffb8dd522e897b2e677b48d93624d4447975e7` | MATCH | PRESENT | blob | 278505 |
+| 5 | `gateway.run` | `gateway/run.py` | `2db32d7fea601f4ba3266adf0495035ed57362f3` | MATCH | PRESENT | blob | 275348 |
+| 6 | `gateway.run_turn_runner` | `gateway/run_turn_runner.py` | `c5a6d6de541f842e79b639684545ec07357f1d1a` | MATCH | PRESENT | blob | 90446 |
+| 7 | `gateway.session_context` | `gateway/session_context.py` | `8bfc49a920cd7946142d76ba49b8f73d079299be` | MATCH | PRESENT | blob | 12415 |
+| 8 | `gateway.session_identity` | `gateway/session_identity.py` | `ee040052968e10a959b11c219acd3e449bc32f64` | MATCH | PRESENT | blob | 15412 |
+| 9 | `hermes_cli.agent_plugins` | `hermes_cli/agent_plugins.py` | `b2b5081fef3bceeb83a7ce1e55570f2fe8fc3f26` | MATCH | PRESENT | blob | 26270 |
+| 10 | `hermes_cli.anon_auth` | `hermes_cli/anon_auth.py` | `7f1568d308fbb10e68263e6d862709ff34d30bfc` | MATCH | PRESENT | blob | 61259 |
+| 11 | `hermes_cli.auth` | `hermes_cli/auth.py` | `41ab3ad14ba97bfce7aa2d5f93190cf14f62586c` | MATCH | PRESENT | blob | 126262 |
+| 12 | `hermes_cli.browser_connect` | `hermes_cli/browser_connect.py` | `8c5c36648726333258db41bb8d80e2a98c6e7ca8` | MATCH | PRESENT | blob | 59025 |
+| 13 | `hermes_cli.config` | `hermes_cli/config.py` | `e069959754ae69cd4849f89d64117667f259828a` | MATCH | PRESENT | blob | 193809 |
+| 14 | `hermes_cli.main` | `hermes_cli/main.py` | `03f6c60555fa0578a6063d29017437e6d268d7cf` | MATCH | PRESENT | blob | 150082 |
+| 15 | `hermes_cli.plugins` | `hermes_cli/plugins.py` | `14e13ab00e3a289b53b9cc32b813ce120079fc23` | MATCH | PRESENT | blob | 124398 |
+| 16 | `hermes_cli.tools_config` | `hermes_cli/tools_config.py` | `b06337093cec78c6fbc210313e2f2928e80bd7a6` | MATCH | PRESENT | blob | 64014 |
+| 17 | `hermes_constants` | `hermes_constants.py` | `f9897c96cc49c6e8b19f1a501715e064c99d182d` | MATCH | PRESENT | blob | 67766 |
+| 18 | `model_tools` | `model_tools.py` | `011d32dc90c4bb24ac10d722aa98bba897177b17` | MATCH | PRESENT | blob | 50378 |
+| 19 | `run_agent` | `run_agent.py` | `eda287031f8fcdb1d98c599191da6571ebebaef1` | MATCH | PRESENT | blob | 88608 |
+| 20 | `tools.approval_prompt` | `tools/approval_prompt.py` | `ac75955302221074100437aeafd324fca74e6a28` | MATCH | PRESENT | blob | 19398 |
+| 21 | `tools.browser_lightpanda` | `tools/browser_lightpanda.py` | `2c4f8c6578aaa6fcf4796b1a543fe1cbf92680b2` | MATCH | PRESENT | blob | 13525 |
+| 22 | `tools.browser_tool_cdp` | `tools/browser_tool_cdp.py` | `ff5126c37e8ed166bba39325210056fc347c0457` | MATCH | PRESENT | blob | 9099 |
+| 23 | `tools.browser_tool_lifecycle` | `tools/browser_tool_lifecycle.py` | `098c182d209b2c61b34794445b261f75ff202900` | MATCH | PRESENT | blob | 36487 |
+| 24 | `tools.browser_use_cli` | `tools/browser_use_cli.py` | `59f900d65b8cb32d643e4b79d5c503bc8a373ef5` | MATCH | PRESENT | blob | 53332 |
+| 25 | `tools.cronjob_tools` | `tools/cronjob_tools.py` | `625b7d970bc66c4d3221dc2eb270b15d948d622a` | MATCH | PRESENT | blob | 62779 |
+| 26 | `tools.environments.local` | `tools/environments/local.py` | `8272bb910823ae342fdf21bf589574bbedff0221` | MATCH | PRESENT | blob | 59846 |
+| 27 | `tools.mcp_tool_agent` | `tools/mcp_tool_agent.py` | `e74f1510b57f110aa7069409398fb4a15677730d` | MATCH | PRESENT | blob | 19326 |
+| 28 | `tools.process_registry` | `tools/process_registry.py` | `f1884286ffd778417a5f749b64282a329864112e` | MATCH | PRESENT | blob | 149812 |
+| 29 | `tools.registry` | `tools/registry.py` | `bc6e1ab7688a17e11d70e1ef992dbf7fb42418c4` | MATCH | PRESENT | blob | 54086 |
+| 30 | `tools.skills_tool` | `tools/skills_tool.py` | `a6f8d186048f91c93b9285c6147fd51cca76a4eb` | MATCH | PRESENT | blob | 41772 |
+| 31 | `tools.vision_tools` | `tools/vision_tools.py` | `c244fd4fa1ea32757b751592b593243b101ef0e2` | MATCH | PRESENT | blob | 59118 |
+| 32 | `tui_gateway.server` | `tui_gateway/server.py` | `b9ab08d4b480137f1194aa37831f51e4dfc915f8` | MATCH | PRESENT | blob | 116565 |
+
+## verdict: 32/32 fully verified (tree binding + blob present)

@@ -1,0 +1,387 @@
+{
+  "schema": "gugu.mirror-integrity/v1",
+  "generated_at": "2026-10-24T23:25:28Z",
+  "repo": "/home/a7067567g/下载/deepseek/60-外部仓库/gugu-work",
+  "mirror": "/home/a7067567g/下载/deepseek/60-外部仓库/hermes-upstream",
+  "tag": "v0.22.5",
+  "tag_commit": "bf0203a794a07aac3ff764972ab9087baa4e4f4e",
+  "env": {
+    "GIT_NO_LAZY_FETCH": "1",
+    "HTTPS_PROXY": "http://127.0.0.1:9",
+    "HTTP_PROXY": "http://127.0.0.1:9",
+    "ALL_PROXY": "http://127.0.0.1:9"
+  },
+  "source": {
+    "archive": "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/refs/tags/v0.22.5",
+    "archive_size_bytes": 87135743,
+    "import_method": "per ROUND-SPEC env fact: operator verified each file sha against the tag blob then git hash-object -w into the mirror"
+  },
+  "verification": {
+    "per_blob": [
+      "git ls-tree v0.22.5 -- <path> == expected blob sha",
+      "git cat-file -e <sha>",
+      "git cat-file -t/-s <sha>"
+    ],
+    "network": "blocked proxies + GIT_NO_LAZY_FETCH=1"
+  },
+  "counts": {
+    "expected": 32,
+    "present": 32,
+    "tree_matching": 32,
+    "fully_verified": 32
+  },
+  "files": [
+    {
+      "n": 1,
+      "module": "agent.skill_commands",
+      "path": "agent/skill_commands.py",
+      "expected_blob": "b46661c70c328491318043b2826fedff7725e4f3",
+      "tree_sha": "b46661c70c328491318043b2826fedff7725e4f3",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 52430
+    },
+    {
+      "n": 2,
+      "module": "agent.vault_backends.unlock",
+      "path": "agent/vault_backends/unlock.py",
+      "expected_blob": "ee2bb090a6b422c542fef0f0d4ed82e3aeda247b",
+      "tree_sha": "ee2bb090a6b422c542fef0f0d4ed82e3aeda247b",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 6409
+    },
+    {
+      "n": 3,
+      "module": "cli",
+      "path": "cli.py",
+      "expected_blob": "23c7c5a40e588c772a1879def18c05311a2be67f",
+      "tree_sha": "23c7c5a40e588c772a1879def18c05311a2be67f",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 82560
+    },
+    {
+      "n": 4,
+      "module": "gateway.platforms.base",
+      "path": "gateway/platforms/base.py",
+      "expected_blob": "b1ffb8dd522e897b2e677b48d93624d4447975e7",
+      "tree_sha": "b1ffb8dd522e897b2e677b48d93624d4447975e7",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 278505
+    },
+    {
+      "n": 5,
+      "module": "gateway.run",
+      "path": "gateway/run.py",
+      "expected_blob": "2db32d7fea601f4ba3266adf0495035ed57362f3",
+      "tree_sha": "2db32d7fea601f4ba3266adf0495035ed57362f3",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 275348
+    },
+    {
+      "n": 6,
+      "module": "gateway.run_turn_runner",
+      "path": "gateway/run_turn_runner.py",
+      "expected_blob": "c5a6d6de541f842e79b639684545ec07357f1d1a",
+      "tree_sha": "c5a6d6de541f842e79b639684545ec07357f1d1a",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 90446
+    },
+    {
+      "n": 7,
+      "module": "gateway.session_context",
+      "path": "gateway/session_context.py",
+      "expected_blob": "8bfc49a920cd7946142d76ba49b8f73d079299be",
+      "tree_sha": "8bfc49a920cd7946142d76ba49b8f73d079299be",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 12415
+    },
+    {
+      "n": 8,
+      "module": "gateway.session_identity",
+      "path": "gateway/session_identity.py",
+      "expected_blob": "ee040052968e10a959b11c219acd3e449bc32f64",
+      "tree_sha": "ee040052968e10a959b11c219acd3e449bc32f64",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 15412
+    },
+    {
+      "n": 9,
+      "module": "hermes_cli.agent_plugins",
+      "path": "hermes_cli/agent_plugins.py",
+      "expected_blob": "b2b5081fef3bceeb83a7ce1e55570f2fe8fc3f26",
+      "tree_sha": "b2b5081fef3bceeb83a7ce1e55570f2fe8fc3f26",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 26270
+    },
+    {
+      "n": 10,
+      "module": "hermes_cli.anon_auth",
+      "path": "hermes_cli/anon_auth.py",
+      "expected_blob": "7f1568d308fbb10e68263e6d862709ff34d30bfc",
+      "tree_sha": "7f1568d308fbb10e68263e6d862709ff34d30bfc",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 61259
+    },
+    {
+      "n": 11,
+      "module": "hermes_cli.auth",
+      "path": "hermes_cli/auth.py",
+      "expected_blob": "41ab3ad14ba97bfce7aa2d5f93190cf14f62586c",
+      "tree_sha": "41ab3ad14ba97bfce7aa2d5f93190cf14f62586c",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 126262
+    },
+    {
+      "n": 12,
+      "module": "hermes_cli.browser_connect",
+      "path": "hermes_cli/browser_connect.py",
+      "expected_blob": "8c5c36648726333258db41bb8d80e2a98c6e7ca8",
+      "tree_sha": "8c5c36648726333258db41bb8d80e2a98c6e7ca8",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 59025
+    },
+    {
+      "n": 13,
+      "module": "hermes_cli.config",
+      "path": "hermes_cli/config.py",
+      "expected_blob": "e069959754ae69cd4849f89d64117667f259828a",
+      "tree_sha": "e069959754ae69cd4849f89d64117667f259828a",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 193809
+    },
+    {
+      "n": 14,
+      "module": "hermes_cli.main",
+      "path": "hermes_cli/main.py",
+      "expected_blob": "03f6c60555fa0578a6063d29017437e6d268d7cf",
+      "tree_sha": "03f6c60555fa0578a6063d29017437e6d268d7cf",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 150082
+    },
+    {
+      "n": 15,
+      "module": "hermes_cli.plugins",
+      "path": "hermes_cli/plugins.py",
+      "expected_blob": "14e13ab00e3a289b53b9cc32b813ce120079fc23",
+      "tree_sha": "14e13ab00e3a289b53b9cc32b813ce120079fc23",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 124398
+    },
+    {
+      "n": 16,
+      "module": "hermes_cli.tools_config",
+      "path": "hermes_cli/tools_config.py",
+      "expected_blob": "b06337093cec78c6fbc210313e2f2928e80bd7a6",
+      "tree_sha": "b06337093cec78c6fbc210313e2f2928e80bd7a6",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 64014
+    },
+    {
+      "n": 17,
+      "module": "hermes_constants",
+      "path": "hermes_constants.py",
+      "expected_blob": "f9897c96cc49c6e8b19f1a501715e064c99d182d",
+      "tree_sha": "f9897c96cc49c6e8b19f1a501715e064c99d182d",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 67766
+    },
+    {
+      "n": 18,
+      "module": "model_tools",
+      "path": "model_tools.py",
+      "expected_blob": "011d32dc90c4bb24ac10d722aa98bba897177b17",
+      "tree_sha": "011d32dc90c4bb24ac10d722aa98bba897177b17",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 50378
+    },
+    {
+      "n": 19,
+      "module": "run_agent",
+      "path": "run_agent.py",
+      "expected_blob": "eda287031f8fcdb1d98c599191da6571ebebaef1",
+      "tree_sha": "eda287031f8fcdb1d98c599191da6571ebebaef1",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 88608
+    },
+    {
+      "n": 20,
+      "module": "tools.approval_prompt",
+      "path": "tools/approval_prompt.py",
+      "expected_blob": "ac75955302221074100437aeafd324fca74e6a28",
+      "tree_sha": "ac75955302221074100437aeafd324fca74e6a28",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 19398
+    },
+    {
+      "n": 21,
+      "module": "tools.browser_lightpanda",
+      "path": "tools/browser_lightpanda.py",
+      "expected_blob": "2c4f8c6578aaa6fcf4796b1a543fe1cbf92680b2",
+      "tree_sha": "2c4f8c6578aaa6fcf4796b1a543fe1cbf92680b2",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 13525
+    },
+    {
+      "n": 22,
+      "module": "tools.browser_tool_cdp",
+      "path": "tools/browser_tool_cdp.py",
+      "expected_blob": "ff5126c37e8ed166bba39325210056fc347c0457",
+      "tree_sha": "ff5126c37e8ed166bba39325210056fc347c0457",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 9099
+    },
+    {
+      "n": 23,
+      "module": "tools.browser_tool_lifecycle",
+      "path": "tools/browser_tool_lifecycle.py",
+      "expected_blob": "098c182d209b2c61b34794445b261f75ff202900",
+      "tree_sha": "098c182d209b2c61b34794445b261f75ff202900",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 36487
+    },
+    {
+      "n": 24,
+      "module": "tools.browser_use_cli",
+      "path": "tools/browser_use_cli.py",
+      "expected_blob": "59f900d65b8cb32d643e4b79d5c503bc8a373ef5",
+      "tree_sha": "59f900d65b8cb32d643e4b79d5c503bc8a373ef5",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 53332
+    },
+    {
+      "n": 25,
+      "module": "tools.cronjob_tools",
+      "path": "tools/cronjob_tools.py",
+      "expected_blob": "625b7d970bc66c4d3221dc2eb270b15d948d622a",
+      "tree_sha": "625b7d970bc66c4d3221dc2eb270b15d948d622a",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 62779
+    },
+    {
+      "n": 26,
+      "module": "tools.environments.local",
+      "path": "tools/environments/local.py",
+      "expected_blob": "8272bb910823ae342fdf21bf589574bbedff0221",
+      "tree_sha": "8272bb910823ae342fdf21bf589574bbedff0221",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 59846
+    },
+    {
+      "n": 27,
+      "module": "tools.mcp_tool_agent",
+      "path": "tools/mcp_tool_agent.py",
+      "expected_blob": "e74f1510b57f110aa7069409398fb4a15677730d",
+      "tree_sha": "e74f1510b57f110aa7069409398fb4a15677730d",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 19326
+    },
+    {
+      "n": 28,
+      "module": "tools.process_registry",
+      "path": "tools/process_registry.py",
+      "expected_blob": "f1884286ffd778417a5f749b64282a329864112e",
+      "tree_sha": "f1884286ffd778417a5f749b64282a329864112e",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 149812
+    },
+    {
+      "n": 29,
+      "module": "tools.registry",
+      "path": "tools/registry.py",
+      "expected_blob": "bc6e1ab7688a17e11d70e1ef992dbf7fb42418c4",
+      "tree_sha": "bc6e1ab7688a17e11d70e1ef992dbf7fb42418c4",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 54086
+    },
+    {
+      "n": 30,
+      "module": "tools.skills_tool",
+      "path": "tools/skills_tool.py",
+      "expected_blob": "a6f8d186048f91c93b9285c6147fd51cca76a4eb",
+      "tree_sha": "a6f8d186048f91c93b9285c6147fd51cca76a4eb",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 41772
+    },
+    {
+      "n": 31,
+      "module": "tools.vision_tools",
+      "path": "tools/vision_tools.py",
+      "expected_blob": "c244fd4fa1ea32757b751592b593243b101ef0e2",
+      "tree_sha": "c244fd4fa1ea32757b751592b593243b101ef0e2",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 59118
+    },
+    {
+      "n": 32,
+      "module": "tui_gateway.server",
+      "path": "tui_gateway/server.py",
+      "expected_blob": "b9ab08d4b480137f1194aa37831f51e4dfc915f8",
+      "tree_sha": "b9ab08d4b480137f1194aa37831f51e4dfc915f8",
+      "tree_matches": true,
+      "blob_present": true,
+      "object_type": "blob",
+      "size_bytes": 116565
+    }
+  ]
+}

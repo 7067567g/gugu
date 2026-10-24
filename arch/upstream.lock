@@ -1,6 +1,6 @@
 {
   "schema": "gugu.upstream-lock/v1",
-  "generated_at": "2026-10-24T22:53:03Z",
+  "generated_at": "2026-10-24T23:26:22Z",
   "tag": "v0.22.5",
   "tag_object": "56b6a31fededdf7364e1a0a79548d144e7fd81a3",
   "tag_object_type": "tag",
@@ -62,7 +62,40 @@
   "repo_partial_clone": true,
   "manifest": "reports/rebase-manifest.json",
   "notes": [
-    "The local mirror is a blob:none partial clone; tag/tree/commit are local, some module blobs are not. No network fetch is performed in A0/A1.",
-    "The 'upstream' remote keeps its name to avoid breaking existing scripts; its semantics are corrected here and in reports/upstream-remote.md."
-  ]
+    "The local mirror is a blob:none partial clone for the full tree, but all 32 kernel-stack module blobs that A1 needed are now present and tree-bound to v0.22.5 (32/32, offline).",
+    "The 'upstream' remote keeps its name to avoid breaking existing scripts; its semantics are corrected here and in reports/upstream-remote.md.",
+    "The symbol-drift allowlist is empty as of 2026-10-25: the completed mirror resolves every kernel-stack import offline (drift=18, unresolved=0, allowlisted=0)."
+  ],
+  "evidence": {
+    "mirror_integrity": {
+      "checked_at": "2026-10-24T23:26:22Z",
+      "tag": "v0.22.5",
+      "tag_commit": "bf0203a794a07aac3ff764972ab9087baa4e4f4e",
+      "blobs_expected": 32,
+      "blobs_present": 32,
+      "tree_sha_match": 32,
+      "method": "GIT_NO_LAZY_FETCH=1 git ls-tree v0.22.5 -- <path> == recorded tag blob sha; git cat-file -e/-t/-s <sha>",
+      "network": "none: GIT_NO_LAZY_FETCH=1 and proxies pointed at 127.0.0.1:9",
+      "artifact": "reports/mirror-integrity-v0.22.5.json"
+    },
+    "drift_scan": {
+      "generated_at": "2026-10-24T23:25:50Z",
+      "scanner": "scripts/upstream/check_symbol_drift.py",
+      "drift": 18,
+      "drift_kinds": {
+        "SYMBOL-GONE": 15,
+        "SYMBOL-NEVER-AT-BASE": 1,
+        "MODULE-GONE": 2
+      },
+      "allowlisted": 0,
+      "unresolved": 0,
+      "resolved": 918,
+      "skipped": 491,
+      "imports_total": 1427,
+      "allowlist_entries": 0,
+      "allowlist_file": "scripts/upstream/symbol-drift-allowlist.json",
+      "artifact": "reports/drift-v0.22.5.json",
+      "delta": "reports/drift-delta-r03a.md"
+    }
+  }
 }

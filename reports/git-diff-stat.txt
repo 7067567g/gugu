@@ -1,0 +1,21 @@
+# command: git diff "$(cat gugu-reb-pipeline/BASE-COMMIT)" --stat
+# snapshot: pre-commit intent-to-add view (this file itself is not in its own stat).
+# The post-commit re-run adds reports/git-diff-stat.txt and reports 17 files; the full
+# post-commit output is preserved in runs/gugu-reb-r03a-driftclose/reports/git-diff-stat.txt.
+ arch/upstream.lock                            | 101 ++++
+ reports/drift-delta-r03a.md                   |  91 ++++
+ reports/drift-reconciliation.md               |  73 +++
+ reports/drift-v0.22.5.json                    | 338 +++++++++++++
+ reports/gate-r01.txt                          | 149 ++++++
+ reports/gates-r03a.txt                        | 162 +++++++
+ reports/mirror-integrity-v0.22.5.json         | 387 +++++++++++++++
+ reports/mirror-integrity-v0.22.5.txt          |  44 ++
+ reports/rebase-manifest.json                  | 589 ++++++++++++++++++++++
+ reports/upstream-remote.md                    | 107 ++++
+ scripts/upstream/README.md                    |  42 ++
+ scripts/upstream/build_rebase_manifest.py     | 221 +++++++++
+ scripts/upstream/check_symbol_drift.py        | 671 ++++++++++++++++++++++++++
+ scripts/upstream/lock_upstream.py             | 199 ++++++++
+ scripts/upstream/symbol-drift-allowlist.json  |  16 +
+ scripts/upstream/tests/test_upstream_tools.py | 144 ++++++
+ 16 files changed, 3334 insertions(+)
