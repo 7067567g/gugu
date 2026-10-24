@@ -1,0 +1,149 @@
+# A0/A1 gate evidence — gugu-reb-r01-prep
+# repo: /home/a7067567g/下载/deepseek/60-外部仓库/gugu-work
+# base: 55300bffe9462b723e9fa10961b98a9d5e98aea1
+# generated: 2026-10-25T06:55:08+08:00
+
+
+$ date -Is
+2026-10-25T06:55:08+08:00
+[exit=0]
+
+$ .venv/bin/python -V
+Python 3.12.15
+[exit=0]
+
+$ .venv/bin/python -m py_compile scripts/upstream/build_rebase_manifest.py scripts/upstream/check_symbol_drift.py scripts/upstream/lock_upstream.py scripts/upstream/tests/test_upstream_tools.py
+[exit=0]
+
+$ .venv/bin/python -m unittest discover -s scripts/upstream/tests -v
+test_aggregate_unresolved_groups_paths (test_upstream_tools.AllowlistTests.test_aggregate_unresolved_groups_paths) ... ok
+test_validate_allowlist_requires_three_fields (test_upstream_tools.AllowlistTests.test_validate_allowlist_requires_three_fields) ... ok
+test_collects_absolute_relative_and_type_checking (test_upstream_tools.ImportTests.test_collects_absolute_relative_and_type_checking) ... ok
+test_module_symbols_ignore_function_locals (test_upstream_tools.ImportTests.test_module_symbols_ignore_function_locals) ... ok
+test_module_symbols_returns_none_on_parse_error (test_upstream_tools.ImportTests.test_module_symbols_returns_none_on_parse_error) ... ok
+test_resolve_relative_parent (test_upstream_tools.ImportTests.test_resolve_relative_parent) ... ok
+test_parse_remote_v_strips_partial_clone_annotation (test_upstream_tools.LockTests.test_parse_remote_v_strips_partial_clone_annotation) ... ok
+test_check_counts_accepts_ratchet (test_upstream_tools.ManifestTests.test_check_counts_accepts_ratchet) ... ok
+test_check_counts_rejects_drift (test_upstream_tools.ManifestTests.test_check_counts_rejects_drift) ... ok
+test_parse_name_status (test_upstream_tools.ManifestTests.test_parse_name_status) ... ok
+test_parse_numstat_handles_binary_dash (test_upstream_tools.ManifestTests.test_parse_numstat_handles_binary_dash) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.002s
+
+OK
+[exit=0]
+
+$ .venv/bin/python scripts/upstream/build_rebase_manifest.py --check
+kernel files=35 (M=26 A=9) +2215/-65
+modified +774 new +1441
+gugu tests=18 +3114
+OK all manifest checks pass
+[exit=0]
+
+$ .venv/bin/python scripts/upstream/check_symbol_drift.py --check
+tag=v0.22.5 commit=bf0203a794a07aac3ff764972ab9087baa4e4f4e expected=bf0203a794a07aac3ff764972ab9087baa4e4f4e match=True
+files=35 imports=1427 resolved=655 drift=15 allowlisted=266 unresolved=0 skipped=491
+drift kinds={'SYMBOL-GONE': 13, 'MODULE-GONE': 2}
+OK drift gate passes (0 unresolved, allowlist valid, tag exact)
+[exit=0]
+
+$ .venv/bin/python scripts/upstream/check_symbol_drift.py --check --only-modified
+tag=v0.22.5 commit=bf0203a794a07aac3ff764972ab9087baa4e4f4e expected=bf0203a794a07aac3ff764972ab9087baa4e4f4e match=True
+files=26 imports=1336 resolved=642 drift=15 allowlisted=256 unresolved=0 skipped=423
+drift kinds={'SYMBOL-GONE': 13, 'MODULE-GONE': 2}
+OK drift gate passes (0 unresolved, allowlist valid, tag exact)
+[exit=0]
+
+$ .venv/bin/python scripts/upstream/lock_upstream.py --check
+tag=v0.22.5 object=56b6a31fededdf7364e1a0a79548d144e7fd81a3 (tag)
+commit=bf0203a794a07aac3ff764972ab9087baa4e4f4e expected=bf0203a794a07aac3ff764972ab9087baa4e4f4e verified=True
+local_ref=refs/remotes/hermes/v0.22.5 matches=True
+hermes remote fetch=/home/a7067567g/下载/deepseek/60-外部仓库/hermes-upstream push=DISABLED
+OK /home/a7067567g/下载/deepseek/60-外部仓库/gugu-work/arch/upstream.lock matches the verified tag/commit and remote semantics
+[exit=0]
+
+$ git -C /home/a7067567g/下载/deepseek/60-外部仓库/hermes-upstream rev-parse v0.22.5^{commit}
+bf0203a794a07aac3ff764972ab9087baa4e4f4e
+[exit=0]
+
+$ git rev-parse refs/remotes/hermes/v0.22.5^{commit}
+bf0203a794a07aac3ff764972ab9087baa4e4f4e
+[exit=0]
+
+$ git remote -v
+hermes	/home/a7067567g/下载/deepseek/60-外部仓库/hermes-upstream (fetch) [blob:none]
+hermes	DISABLED (push)
+origin	https://github.com/7067567g/gugu.git (fetch)
+origin	https://github.com/7067567g/gugu.git (push)
+upstream	https://github.com/joydove/gugu.git (fetch)
+upstream	DISABLED (push)
+[exit=0]
+
+$ git diff 171fdfd7..HEAD --numstat -- agent tools hermes_cli gateway tui_gateway tests | awk '{a+=$1;d+=$2;n++} END{print "files="n,"add="a,"del="d}'
+files=53 add=5329 del=65
+[exit=0]
+
+$ git diff 171fdfd7..HEAD --name-status -- agent tools hermes_cli gateway tui_gateway tests | awk '$1=="A"{a++} $1=="M"{m++} END{print "A="a,"M="m}'
+A=25 M=28
+[exit=0]
+
+$ git status --porcelain=v1
+?? reports/drift-v0.22.5.json
+?? reports/gate-r01.txt
+?? reports/rebase-manifest.json
+[exit=0]
+
+$ credential-like string scan
+no credential-like strings
+[exit=0]
+
+$ git diff 171fdfd7..HEAD --numstat -- agent tools hermes_cli gateway tui_gateway | awk ...
+files=35 add=2215 del=65
+[exit=0]
+
+$ git diff 171fdfd7..HEAD --name-status -- agent tools hermes_cli gateway tui_gateway | awk ...
+A=9 M=26
+[exit=0]
+
+$ git diff 171fdfd7..HEAD --numstat -- tests | awk ...
+files=18 add=3114 del=0
+[exit=0]
+
+$ git diff --cached 55300bff --stat
+ arch/upstream.lock                            |    68 +
+ reports/drift-v0.22.5.json                    | 11993 ++++++++++++++++++++++++
+ reports/gate-r01.txt                          |   111 +
+ reports/rebase-manifest.json                  |   589 ++
+ reports/upstream-remote.md                    |   107 +
+ scripts/upstream/README.md                    |    42 +
+ scripts/upstream/build_rebase_manifest.py     |   221 +
+ scripts/upstream/check_symbol_drift.py        |   671 ++
+ scripts/upstream/lock_upstream.py             |   199 +
+ scripts/upstream/symbol-drift-allowlist.json  |  2722 ++++++
+ scripts/upstream/tests/test_upstream_tools.py |   144 +
+ 11 files changed, 16867 insertions(+)
+[exit=0]
+
+# post-commit evidence (the commit hash changes on amend; see git log)
+$ git diff 55300bff --stat
+ arch/upstream.lock                            |    68 +
+ reports/drift-v0.22.5.json                    | 11993 ++++++++++++++++++++++++
+ reports/gate-r01.txt                          |   129 +
+ reports/rebase-manifest.json                  |   589 ++
+ reports/upstream-remote.md                    |   107 +
+ scripts/upstream/README.md                    |    42 +
+ scripts/upstream/build_rebase_manifest.py     |   221 +
+ scripts/upstream/check_symbol_drift.py        |   671 ++
+ scripts/upstream/lock_upstream.py             |   199 +
+ scripts/upstream/symbol-drift-allowlist.json  |  2722 ++++++
+ scripts/upstream/tests/test_upstream_tools.py |   144 +
+ 11 files changed, 16885 insertions(+)
+[exit=0]
+
+$ git diff 55300bff --name-only | grep -vE "^(arch/upstream\\.lock|scripts/upstream/|reports/)"
+[grep_exit=1] (1 = no out-of-whitelist paths)
+
+$ git status --porcelain=v1
+ M reports/gate-r01.txt
+[exit=0]

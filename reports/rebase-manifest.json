@@ -1,0 +1,589 @@
+{
+  "schema": "gugu.rebase-manifest/v1",
+  "repo": "/home/a7067567g/下载/deepseek/60-外部仓库/gugu-work",
+  "base_commit": "171fdfd76978370d32e8a7e7c2b9865b6b4f47e4",
+  "head_commit": "55300bffe9462b723e9fa10961b98a9d5e98aea1",
+  "generated_at": "2026-10-24T22:54:36Z",
+  "method": {
+    "kernel_dirs": [
+      "agent",
+      "tools",
+      "hermes_cli",
+      "gateway",
+      "tui_gateway"
+    ],
+    "test_dir": "tests",
+    "diff": "git diff --numstat/--name-status --no-renames <base>..HEAD",
+    "blob_sha256": "sha256 over `git cat-file blob <blob-sha>`"
+  },
+  "expected": {
+    "kernel_total_files": 35,
+    "kernel_modified_files": 26,
+    "kernel_added_files": 9,
+    "kernel_modified_added_lines": 774,
+    "kernel_modified_deleted_lines": 65,
+    "kernel_added_lines": 1441,
+    "kernel_total_added_lines": 2215,
+    "gugu_test_files": 18,
+    "gugu_test_added_lines": 3114
+  },
+  "counts": {
+    "kernel_total_files": 35,
+    "kernel_modified_files": 26,
+    "kernel_added_files": 9,
+    "kernel_modified_added_lines": 774,
+    "kernel_modified_deleted_lines": 65,
+    "kernel_added_lines": 1441,
+    "kernel_total_added_lines": 2215,
+    "gugu_test_files": 18,
+    "gugu_test_added_lines": 3114
+  },
+  "checks": {
+    "kernel_total_files": true,
+    "kernel_modified_files": true,
+    "kernel_added_files": true,
+    "kernel_modified_added_lines": true,
+    "kernel_modified_deleted_lines": true,
+    "kernel_added_lines": true,
+    "kernel_total_added_lines": true,
+    "gugu_test_files": true,
+    "gugu_test_added_lines": true,
+    "kernel_statuses_only_A_or_M": true,
+    "test_statuses_only_A_or_M": true
+  },
+  "all_checks_pass": true,
+  "kernel_files": [
+    {
+      "path": "agent/account_usage.py",
+      "status": "M",
+      "base_blob": "e5989e26b92a078cab093cc1d75fb4ccafb3e2c3",
+      "base_sha256": "50bac6e67c7c35dfd0505deed2e3105a324b5de669656feffed65e42b72cdc90",
+      "head_blob": "a1d417811d70a355026a793d801837a72e97701a",
+      "head_sha256": "93794d7184e0e4eafa904337b8e882bcbab429866f02a6963ddb41cf3f93d043",
+      "added_lines": 4,
+      "deleted_lines": 4
+    },
+    {
+      "path": "agent/context_compressor.py",
+      "status": "M",
+      "base_blob": "99add9a9ae3f5ccc39fc8b7129647e34633c3f04",
+      "base_sha256": "e4a740a26111e1766490b655f8ba4105b46ec0f6f682bcaed5ee7e2154fe06c1",
+      "head_blob": "091ef22693f97f552f1566101d1733bda91a6c26",
+      "head_sha256": "25dd1cc3af575c7bae067a7f1fe0c087e9fd3c8a18abc63a815ba187dd337619",
+      "added_lines": 7,
+      "deleted_lines": 2
+    },
+    {
+      "path": "agent/credential_persistence.py",
+      "status": "M",
+      "base_blob": "2c0154e9fb3adbe3853dde6870c975a7846c585c",
+      "base_sha256": "86826da2caa1152fd5b96c18f465e72130a155fa8ef5dc883c336dc5b5ebe60f",
+      "head_blob": "613a79e7bc93685667a84c426f644ee112be99b8",
+      "head_sha256": "94bfbb2097de9e5d9562d1166c3c6c5d06bf3b0dd3112e504d312569e402632e",
+      "added_lines": 48,
+      "deleted_lines": 4
+    },
+    {
+      "path": "agent/plan_mode.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "7e5e6c2a99ca13fac7e53949c28ab02b1c1ac56e",
+      "head_sha256": "97019b4f6dc0d38e21f746a1399cb1d17128a4dd65569306a066abd030b251b9",
+      "added_lines": 228,
+      "deleted_lines": 0
+    },
+    {
+      "path": "agent/secret_redaction.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "613e27265b26342dbcb21757cf4e8fb74fd2c3d7",
+      "head_sha256": "16d35e2fc41bf8c5728a2976d190c70895f6b917d515e1ca90217a0571cefb25",
+      "added_lines": 141,
+      "deleted_lines": 0
+    },
+    {
+      "path": "agent/token_meter.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "fb832f6001a463fb246e0e3810b04b7dd868770d",
+      "head_sha256": "e8e907998bcd431caf5e119251a7fcfc7306dcfc5119f6823c5d4d82a804e9ae",
+      "added_lines": 200,
+      "deleted_lines": 0
+    },
+    {
+      "path": "agent/turn_context.py",
+      "status": "M",
+      "base_blob": "113527c540f40d926ffcdd0ab42f39cf87630b5b",
+      "base_sha256": "85f857dc3c317366d918516bc8b37a022f1020b34da0c3966a31bd289b2942e1",
+      "head_blob": "124fae75c1f03abe5b6fed7eef8a8c664098a819",
+      "head_sha256": "1172ee6201bc524a049622f40123cac4a9eaf99bd1d6dfb888630e7e34134dd4",
+      "added_lines": 18,
+      "deleted_lines": 2
+    },
+    {
+      "path": "agent/turn_context_compaction.py",
+      "status": "M",
+      "base_blob": "939ecaa92dfcbd3cdac627f7010e775f7c560c4a",
+      "base_sha256": "85bdda1807424700731dcbfdd02cf370919af09780af8172b429f3fd44fa2f04",
+      "head_blob": "5cbbf2b91aa5c6203e74ef74a79f07f0b1e39f4c",
+      "head_sha256": "a62c06c2fc987a358df55491132633a63b67012d8f30bca375f97faf38f20f49",
+      "added_lines": 15,
+      "deleted_lines": 0
+    },
+    {
+      "path": "agent/usage_pricing.py",
+      "status": "M",
+      "base_blob": "58aeff3fea93c9fcfd7b886556231f90aede868a",
+      "base_sha256": "43ee130247c19868d970307b12bb3a509b051481c6b91e3dd461788e88eff6aa",
+      "head_blob": "3176faeb1fe2fdccf1a8ffb7dadbeaddffddea69",
+      "head_sha256": "d0e41c8db4849e00b97fa82ad19fa061df6dbf22e9cd7066046631ea8d6c1d9f",
+      "added_lines": 2,
+      "deleted_lines": 1
+    },
+    {
+      "path": "gateway/run_inbound.py",
+      "status": "M",
+      "base_blob": "48d793d7a72660f3afa898a018e78dd15d536b93",
+      "base_sha256": "6089acbd0302316a89a3b289e9f0f314f2736f9cdd580e2c2481ab12152239ef",
+      "head_blob": "291e566e345646747589adedc6644db33be93e77",
+      "head_sha256": "7f1dfa369f04c11e04b13003b46e0264ba4add1cbd454961e5a91ffbe124de5d",
+      "added_lines": 16,
+      "deleted_lines": 0
+    },
+    {
+      "path": "hermes_cli/_early_recovery.py",
+      "status": "M",
+      "base_blob": "fcd514ee9eebdad3e1c7efc05266d282aa51a5b5",
+      "base_sha256": "f1e62e68dde843d0575fcca24c9c3782f36f492a366d8edd480bc8f09c7f9c14",
+      "head_blob": "af3cf431c181c5d2d57373d117feed5183979044",
+      "head_sha256": "5b9b6689e5e94ae88d5dc23151e4b5c107f4c44f09b01db968407f5c9d101130",
+      "added_lines": 4,
+      "deleted_lines": 10
+    },
+    {
+      "path": "hermes_cli/_startup_fast.py",
+      "status": "M",
+      "base_blob": "d4fe0818d5d0beeb3f749c82994b7ca166977eb0",
+      "base_sha256": "694995a782f451a887c139895e8ac29b3d0f20e86f1f0368cbd19b9e6990ef58",
+      "head_blob": "860a647dffe4155f84e8510153d0e398e11a3665",
+      "head_sha256": "6296a9117478714ca36e6457373300a5fcf509a3d645e9a898dec59c70bc706b",
+      "added_lines": 19,
+      "deleted_lines": 3
+    },
+    {
+      "path": "hermes_cli/banner.py",
+      "status": "M",
+      "base_blob": "b7c74b27462476672914569d84a3ce1085b13730",
+      "base_sha256": "eee33fcf98b396da5fc5a69c7f8367fb744f5508ba5221dc2e0a8ebf6252b566",
+      "head_blob": "058ea1e019313c1a8d636c43d2b13d39a0674d9f",
+      "head_sha256": "65723795978e4b30795b85a4f63066e660b821bc4cf226cc004f9c282aa7937d",
+      "added_lines": 23,
+      "deleted_lines": 2
+    },
+    {
+      "path": "hermes_cli/build_info.py",
+      "status": "M",
+      "base_blob": "b18aa12de537d6d4aef2f0478fba7f5aea505da1",
+      "base_sha256": "3ebe27e81361ae22fd64f4665bb1680b2a68966222b981cfb16161c37d029cef",
+      "head_blob": "5e579d817cc2c99506124964837c5dee41a7f314",
+      "head_sha256": "66d3fe5cf8da205eaee9c6811015f966197bdf6e0520082efc2c192f60006e10",
+      "added_lines": 26,
+      "deleted_lines": 11
+    },
+    {
+      "path": "hermes_cli/cli_commands_mixin.py",
+      "status": "M",
+      "base_blob": "469ce0eabf72eacd5829ccd3d0750d0c5901614e",
+      "base_sha256": "e073010ddd88e0ab28fc6970e6c7d0c8ef91a35bc679380162ffc5390a451b33",
+      "head_blob": "00592a9957c91fe48abeed4aaa187a554d7d1b0f",
+      "head_sha256": "ee8158fb5fc5823a5757c75f8af116317026c7ba670ca7b685d17c03489895a4",
+      "added_lines": 5,
+      "deleted_lines": 1
+    },
+    {
+      "path": "hermes_cli/commands.py",
+      "status": "M",
+      "base_blob": "cfe1d07566ef2bbb1f7a5b59ddc3983c61bdc525",
+      "base_sha256": "4b00ecf404fce59a049c8e8898c731e442ba6dede57b34b6740bf8b8a23b2446",
+      "head_blob": "abcf0f74ca79a23912a5a91395eb6bbc43e5f95c",
+      "head_sha256": "c827745ddf17bc4bf3a25e45b7ef9c43a909a08c42649d0a789f7e2299b77b23",
+      "added_lines": 2,
+      "deleted_lines": 2
+    },
+    {
+      "path": "hermes_cli/config_defaults.py",
+      "status": "M",
+      "base_blob": "7e1bed1cd19cd29408ad8410362552cf7f9ca0ea",
+      "base_sha256": "2af916849856bfa39b4903c660301f968a4cec87410cd7023c89ee7b3f3fdc68",
+      "head_blob": "efd1f5201bc8552e65c6fb64c0ce4704d685d0d9",
+      "head_sha256": "a10c93599712aa39bd5c966ea88622f089e3cfa7887ec62d15a4b9dce5470658",
+      "added_lines": 6,
+      "deleted_lines": 3
+    },
+    {
+      "path": "hermes_cli/gugu_service.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "a1be99174d34ce86e674c35324c1c2e25b8bde4f",
+      "head_sha256": "cc9513399b59ef0e45211b757c857c69067d89753286a98399ce455d6c64039d",
+      "added_lines": 220,
+      "deleted_lines": 0
+    },
+    {
+      "path": "hermes_cli/main_install_repair.py",
+      "status": "M",
+      "base_blob": "e26d04d214c8c490516ce79208008f5ab11d82b1",
+      "base_sha256": "8ae0aeddb9879a5f4da0cf5ec44c5333632bb2006b59a74874c6f18d9f4aa78c",
+      "head_blob": "3aeeeae7ad111d26cce6d068cf89477947967e37",
+      "head_sha256": "5e87e0cccf9a7b3abbb9f57e0494f44f1f83aaa8c91409b9f36fae81aeb71fe9",
+      "added_lines": 3,
+      "deleted_lines": 7
+    },
+    {
+      "path": "hermes_cli/models.py",
+      "status": "M",
+      "base_blob": "4fa57de4f40fcba7682cc79e239a0011fef476aa",
+      "base_sha256": "546d17335f53b938172d186a3c9c3e3cdbcb01865d1c42ce5e17b84ce286a176",
+      "head_blob": "4edbe194d4e1db9d7b83c4cfa0a4381228932c69",
+      "head_sha256": "c4fb4c48d4cd69c81fab37a1e518846e222a62db29a715ec437ae3aff9c72df2",
+      "added_lines": 10,
+      "deleted_lines": 1
+    },
+    {
+      "path": "hermes_cli/uninstall.py",
+      "status": "M",
+      "base_blob": "719fbeffd42f6618e8534a8327a9d9284c0eac6e",
+      "base_sha256": "faab428aa814de62bd9507ca55469208f13b4921c62125fffa88cabdc0ee1933",
+      "head_blob": "f4309104cedef081c9cd7355877959dec7ce0a10",
+      "head_sha256": "e7f15c7ef64221561df5b73746d2efc3fe86935954231a689a384e6495201350",
+      "added_lines": 1,
+      "deleted_lines": 1
+    },
+    {
+      "path": "hermes_cli/update_cmd_maint.py",
+      "status": "M",
+      "base_blob": "339bf3449ff793079001acbf9ef16afbb811505e",
+      "base_sha256": "2e24eea6f05e8530d61197a7f11eebd853b2531818b0abed42415d5971b33584",
+      "head_blob": "6f3e71809940bc82621639df13f5b8d9f2e4b544",
+      "head_sha256": "f6fafc0ee5532395615aa6ebf56360d9f7425c8ae06b515ce09145f564afa320",
+      "added_lines": 3,
+      "deleted_lines": 4
+    },
+    {
+      "path": "hermes_cli/version_source.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "4bf83b4c2833525b749a6532f0f7341802f49cf5",
+      "head_sha256": "64ca2864964ae8e5c472401c630156fbc38cc67c415408d6f4e0e3f00317aea5",
+      "added_lines": 87,
+      "deleted_lines": 0
+    },
+    {
+      "path": "hermes_cli/web_routers/gugu_auth.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "b56728d767be8c6fb0a11d8f31dad88c8a70b21d",
+      "head_sha256": "65702d8a9a12ea2314b971956da3ae62a40806d4d82ad5efdb79abed0b753773",
+      "added_lines": 222,
+      "deleted_lines": 0
+    },
+    {
+      "path": "hermes_cli/web_routers/oauth.py",
+      "status": "M",
+      "base_blob": "ad7e8da787ead4c75e2a5b38ae6d7b7199458d18",
+      "base_sha256": "f5ac65f27eb9722a433ab600f336617185b74e0ac75a25d727b7d4836d4ab076",
+      "head_blob": "ef0ad6184f212102c26e1f9bbd559397a8205039",
+      "head_sha256": "be70becdcad605063032b58012740f2089db1ad02d4a69152a8a150bdf155309",
+      "added_lines": 24,
+      "deleted_lines": 0
+    },
+    {
+      "path": "hermes_cli/web_server.py",
+      "status": "M",
+      "base_blob": "88d92bc234f2dd82785cc88260cb74a5812d4220",
+      "base_sha256": "dd095ecfe0a8a1dcc9148c170e96efd8eb9a5ce9a3de68d905f0d61024b144a0",
+      "head_blob": "8662213ba7e4964696042fedce1014222cea160d",
+      "head_sha256": "1ddfa8929ffbd39b2d3811fb2e25b8d44212a6e5298de509a90f0c4edb583d84",
+      "added_lines": 3,
+      "deleted_lines": 0
+    },
+    {
+      "path": "hermes_cli/web_server_oauth.py",
+      "status": "M",
+      "base_blob": "78510ff777c953354850be86171dbf015a7dbd86",
+      "base_sha256": "f8b24b7841832b124f4bfebc607f281647b016c37c9265ab770129965a467990",
+      "head_blob": "ae89961a3ff485c73de6699eed26b359097c3e1b",
+      "head_sha256": "6441cb575d0a587e1db268b9526dd44048d89745c84124a466b541eeb76bba41",
+      "added_lines": 15,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tools/approval.py",
+      "status": "M",
+      "base_blob": "627c7c92c2be132dc783d5e7af7a174071470fc1",
+      "base_sha256": "fb8dafe0ed0b18b9c782330724fe17f9ec8503de59cfa166b506c13c7bc685ac",
+      "head_blob": "6536e2d962488f6daefcd5229a91c028a1f8f515",
+      "head_sha256": "5fb62f93ddd784225b72b57a8a503c31e2285a330e1457e8edd8348bdbc8bcff",
+      "added_lines": 10,
+      "deleted_lines": 3
+    },
+    {
+      "path": "tools/approval_outcome.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "df98f9388c2fb784fc817f787a7b183c01d6eb47",
+      "head_sha256": "b5d8443dfc8a38156886ae79c9819e3923dc72b4192ea2f4a237c7a007449c45",
+      "added_lines": 104,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tools/delegate_catalog.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "ee3dcdaeae4554fb166544b2fae9def0e4f7fd31",
+      "head_sha256": "620ca9db3cb19ab371ebb6eb5593204e04b997f5803fd6c04cefa75877364493",
+      "added_lines": 179,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tools/delegate_tool_registry.py",
+      "status": "M",
+      "base_blob": "d4aed02363cfc95d762ca81edd693b5f29f7a5fd",
+      "base_sha256": "ca0cf0fc762538a93c40379bcf7a558846992548815b4f91fe3ad834fdb80854",
+      "head_blob": "a72771003274f2cba6aa332019c6208ab8e6fa7b",
+      "head_sha256": "e9c315fb641de5249eef305b930aff415e72b427a2d3016a9ff7216986540f42",
+      "added_lines": 17,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tools/mcp_liveness.py",
+      "status": "M",
+      "base_blob": "17efb80c00dd9a4ed47a855c1fa3711cdafdaa05",
+      "base_sha256": "e333d86db0969bd08cf083decba984738aa52a1bbf90b4793fa7a23502c4564f",
+      "head_blob": "007452b0b3618b4c84ab5cc0e3399c76d8d091d9",
+      "head_sha256": "d9947ed2f55d160f32330396c6331671d1b0f40c1b602397325ba4bc6e2fb6c9",
+      "added_lines": 438,
+      "deleted_lines": 1
+    },
+    {
+      "path": "tools/mcp_tool_transport.py",
+      "status": "M",
+      "base_blob": "6ebcd85c60402bc6908b297027f3bc303919cc40",
+      "base_sha256": "915023c572f5cb56d0a99e7709a9d358be3a3c00cbd9f02fe7327815ffa7a8a0",
+      "head_blob": "1354b41034167e6d54f8b87a7ab5adf747abcea7",
+      "head_sha256": "d5ed28f89e19b20baa836445d459b3f48d0b1c884dc67017fa796f90e1635fd0",
+      "added_lines": 41,
+      "deleted_lines": 2
+    },
+    {
+      "path": "tools/plan_mode_tool.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "3342c918c61c20364eff67ec1deacb7ac8c96726",
+      "head_sha256": "784a79f1c9fb7dd7f76fe88218abfd289bfc5bf2c96117cf91a2f6944c2c0cdf",
+      "added_lines": 60,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tui_gateway/methods_tools.py",
+      "status": "M",
+      "base_blob": "856f59fce41ea5da9f5d5a6e41339ef6d064af53",
+      "base_sha256": "4c38d70b567c53bc4ceace1e9f285c320649a48d581ea7d75386adce5c0f4ee4",
+      "head_blob": "c7a8e2822c80db21b023457edc3c8e2e22caa4cd",
+      "head_sha256": "a2ec307ec6b40ccfe9f61893844a7e38af7a32a1819474da23e07565106878ea",
+      "added_lines": 14,
+      "deleted_lines": 1
+    }
+  ],
+  "gugu_test_files": [
+    {
+      "path": "tests/agent/test_plan_mode_state.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "700a7ee58890658ee5d85c89f6f16221103120f5",
+      "head_sha256": "0d0c8043f9c3d790d20dce02cceba65d1bdae0fdbacd0c04f3eaca86becdf869",
+      "added_lines": 152,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tests/agent/test_secret_redaction.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "58f2b55276f10098cc19702643e294ae432e8b1f",
+      "head_sha256": "01879cb2193c531649aedba59bc47fa70419a2861db634474e542a913a5fa370",
+      "added_lines": 141,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tests/agent/test_secret_redaction_wiring.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "824f84884c1cf9a267a516b935a9b4fbd78b100f",
+      "head_sha256": "d3bd54614e6f56658514d47db3af0ef2ddaebb270f2525c3b56b08c13d4427db",
+      "added_lines": 113,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tests/agent/test_token_meter_snapshot.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "10ca24db24d2d5aafb3d9fdfdb879d0238d6fb39",
+      "head_sha256": "a9aa4f6092760b1bf31f4245effca1c2e564e2603d8c011f416b841ea2900619",
+      "added_lines": 170,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tests/agent/test_token_meter_wiring.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "ff1011b053dcbfda7972807d50446ce4f49a7d04",
+      "head_sha256": "c999293a47e40430e871ef20493b3d7fc78a397df2a40c47c891d24885369e27",
+      "added_lines": 193,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tests/ci/test_ci_workflow_wiring.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "05972d9ba24d1840f8892c1c11263758034bdb1c",
+      "head_sha256": "e1fef4484bdda7089f6b304ea3059ff9d046a48b46cd190fd31dcdc7e630964e",
+      "added_lines": 348,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tests/ci/test_classify_changes.py",
+      "status": "M",
+      "base_blob": "3a8d0f88b9d41d69a6667a0071d42ccb995b5d65",
+      "base_sha256": "f0ede366bef4f81a06d003faef94a14235dfa399cc55e9832e84fbad108355f9",
+      "head_blob": "81c6a5bd0c79115ebd300d72593d5b4ad6c6c7b5",
+      "head_sha256": "cca58150d22097ec346de0cba00e4f19d4347c246979f15f429ddd69728e3308",
+      "added_lines": 6,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tests/ci/test_design_rules.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "a84f1fa6808c8cdbff18e372cc4b1a4289bf9845",
+      "head_sha256": "e5989d1023a776866c4741f77cdb28c0b607c15d651d0d94e0968c2b9c35f4e1",
+      "added_lines": 149,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tests/ci/test_gugu_release_consistency.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "69dab80db645da99b21e43195584c9ccac8e8e63",
+      "head_sha256": "1f7d5ea6f00d7567b1e0529b45f6628401118246cc6864b96aea96149c671757",
+      "added_lines": 244,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tests/ci/test_gugu_version_source.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "14a1b513b9b0b871e4c559efdf737aca15a5a6e9",
+      "head_sha256": "10e1b6645e0670764b3f1ad8820f05ca3fd2913edc135aa74efba5da90326cf3",
+      "added_lines": 245,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tests/ci/test_live_comment.py",
+      "status": "M",
+      "base_blob": "b4c1329eb05b884c1e3b96b96b7e722c5647ae58",
+      "base_sha256": "5b74896a722a9acdc1ca1b863e6dc4a6bc9e2bcbaa31c16b133d688a91e2ad23",
+      "head_blob": "39fcde8c99160cd864bae28cdc66e09ad7968ad2",
+      "head_sha256": "9d4e67f0e5cce2f02198bd2244154dfc4a6ec6452e9c5956c94104d3dbe1b277",
+      "added_lines": 6,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tests/plugins/model_providers/test_fallback_regression.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "41cbf9dde44a09541367a5bc7331a01a2602e232",
+      "head_sha256": "29906bd03bab5491d9191fd1e144fed431e6c80e9ed737ab73c07eca5be68c55",
+      "added_lines": 38,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tests/plugins/test_gugu_design_slice.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "fa23e40ed8291322d5ade63dee0e748b98442a6e",
+      "head_sha256": "40b90e49d446189d5d571f78cd46ae856cbb64feee3919089cd137b67e1871f1",
+      "added_lines": 208,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tests/providers/test_registry_single_seam.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "62ed104db77338ccd739cbfd2654159ff188728a",
+      "head_sha256": "87f6c0e5dcaf88855da2e9d634d4e3b6a97b4350be4844826e47772a766c952f",
+      "added_lines": 171,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tests/tools/test_approval_outcome_failclosed.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "3d7bfea2a90fd136b4998e21ea06437b3d0626c1",
+      "head_sha256": "3f070e91409a3300d8912a6e7a4b0be7df3920282dffee986888152851276fb7",
+      "added_lines": 171,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tests/tools/test_delegate_registry_catalog.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "83b886d796d811e9a6e68beb6a4f174168057eb3",
+      "head_sha256": "ad5d15872d9768b6f7e7056ff3a9d443fb0c4239b8bf055be74127538c784f82",
+      "added_lines": 187,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tests/tools/test_mcp_transport_liveness.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "894de4f58d24006132b23da5cf52478e80545202",
+      "head_sha256": "485c81d2ff310c0cb52024471727497cd6a7a794864605913736ebf093399d4d",
+      "added_lines": 255,
+      "deleted_lines": 0
+    },
+    {
+      "path": "tests/tools/test_mcp_watchdog_wiring.py",
+      "status": "A",
+      "base_blob": null,
+      "base_sha256": null,
+      "head_blob": "4e39955d4fac2aad0ff9c9a80026596c7541cccd",
+      "head_sha256": "086074bc2f8046e249dc0b0f2cd0a96a49394ddb10e3ad82628e38fdfd04e627",
+      "added_lines": 317,
+      "deleted_lines": 0
+    }
+  ]
+}
