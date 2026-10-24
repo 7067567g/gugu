@@ -1,0 +1,68 @@
+{
+  "schema": "gugu.upstream-lock/v1",
+  "generated_at": "2026-10-24T22:53:03Z",
+  "tag": "v0.22.5",
+  "tag_object": "56b6a31fededdf7364e1a0a79548d144e7fd81a3",
+  "tag_object_type": "tag",
+  "commit": "bf0203a794a07aac3ff764972ab9087baa4e4f4e",
+  "commit_short": "bf0203a7",
+  "commit_date": "2026-10-22",
+  "commit_subject": "fix(launchers): a Python repin republishes hermes.exe, not a .cmd",
+  "expected_commit": "bf0203a794a07aac3ff764972ab9087baa4e4f4e",
+  "verified": true,
+  "local_ref": "refs/remotes/hermes/v0.22.5",
+  "local_commit": "bf0203a794a07aac3ff764972ab9087baa4e4f4e",
+  "local_ref_matches": true,
+  "fetch": {
+    "filter": "blob:none",
+    "partial": true,
+    "tag_object": "56b6a31fededdf7364e1a0a79548d144e7fd81a3",
+    "tag_object_type": "tag",
+    "local_commit": "bf0203a794a07aac3ff764972ab9087baa4e4f4e",
+    "direct_refetch_idempotent": true,
+    "evidence": "the local mirror is a blob:none partial clone, so a direct fetch cannot pack its own missing history blob (614c440766318b3281622238ba647993d6d7783e). The tag was fetched with GIT_NO_LAZY_FETCH=1 through a temporary local relay whose object store is the mirror's (alternates) and whose uploadpack.allowFilter is enabled; the relay was deleted after the fetch. No network was used."
+  },
+  "remote": {
+    "name": "hermes",
+    "fetch_url": "/home/a7067567g/下载/deepseek/60-外部仓库/hermes-upstream",
+    "push_url": "DISABLED",
+    "readonly": true,
+    "promisor": true,
+    "partial_clone_filter": "blob:none",
+    "local_mirror": "/home/a7067567g/下载/deepseek/60-外部仓库/hermes-upstream",
+    "refspec": "refs/tags/v0.22.5:refs/remotes/hermes/v0.22.5",
+    "fetch_command": "GIT_NO_LAZY_FETCH=1 git fetch --no-tags hermes refs/tags/v0.22.5:refs/remotes/hermes/v0.22.5"
+  },
+  "remotes": {
+    "origin": {
+      "fetch": "https://github.com/7067567g/gugu.git",
+      "push": "https://github.com/7067567g/gugu.git",
+      "semantics": "gugu product remote (7067567g/gugu); human-writable, never pushed by automation"
+    },
+    "upstream": {
+      "fetch": "https://github.com/joydove/gugu.git",
+      "push": "DISABLED",
+      "semantics": "GUGU MIRROR — github.com/joydove/gugu. This is NOT the Hermes upstream; push is DISABLED. Never use it as the rebase source."
+    },
+    "hermes": {
+      "fetch": "/home/a7067567g/下载/deepseek/60-外部仓库/hermes-upstream",
+      "push": "DISABLED",
+      "semantics": "read-only mirror of NousResearch/hermes-agent at a local path; fetch only from the local path, never from the network in A0/A1"
+    }
+  },
+  "upstream_semantics": {
+    "hermes_upstream": "hermes remote (local mirror of NousResearch/hermes-agent)",
+    "gugu_mirror": "upstream remote (joydove/gugu) — not an upstream",
+    "rule": "scripts/docs must never fetch the rebase source from the 'upstream' remote"
+  },
+  "verify_commands": [
+    "git -C /home/a7067567g/下载/deepseek/60-外部仓库/hermes-upstream rev-parse 'v0.22.5^{commit}'",
+    "git -C /home/a7067567g/下载/deepseek/60-外部仓库/gugu-work rev-parse 'refs/remotes/hermes/v0.22.5^{commit}'"
+  ],
+  "repo_partial_clone": true,
+  "manifest": "reports/rebase-manifest.json",
+  "notes": [
+    "The local mirror is a blob:none partial clone; tag/tree/commit are local, some module blobs are not. No network fetch is performed in A0/A1.",
+    "The 'upstream' remote keeps its name to avoid breaking existing scripts; its semantics are corrected here and in reports/upstream-remote.md."
+  ]
+}
