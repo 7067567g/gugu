@@ -59,7 +59,7 @@ checker 对涉及 unclassified 的边**只计数、不判违规**；但某个 `.
 | **G** | ✅ | ✅ | ✅ | ❌ |
 | **P** | ✅ | ✅ | ✅ | ✅ |
 
-- 未列出的 `unclassified` 行/列：**不判定**（计 `unclassified_edges`，见 §5.4）。
+- 未列出的 `unclassified` 行/列：**不判定**（计 `unclassified_edges`，见 §1）。
 - 矩阵与 checker 的 `forbidden_pairs()` 必须同源：**K→X、K→G、K→P、X→G、X→P、G→P**
   这 6 对是门禁唯一会比较的 pair。`arch/architecture.yaml` 的 `classes.*.allowed_deps`
   与 `forbidden_deps` 是矩阵的机器可读版本；每个 module 条目的这两个列表必须与所属类
@@ -200,8 +200,9 @@ issue 或 PR**、**前后计数**、**为什么不是本期零增长**。JSON �
 `commit`、`architecture_sha256`、`generated_at`，便于审计。
 
 **下降也要显式更新**：`scripts/arch/test_check_boundaries.py` 断言
-`cmp.improvements == []`，所以计数低于基线同样会让测试红——这是为了逼棘轮及时下调，
-不是让门禁自动改文件。**checker 永不自动写 baseline。**
+`cmp.improvements == []`，所以计数低于基线同样会让 `pytest scripts/arch` 红（CI 的
+`arch-gate` 只跑 checker，不会因此红）——这是为了逼棘轮及时下调，不是让门禁自动改文件。
+**checker 永不自动写 baseline。**
 
 ### 5.4 明令禁止
 
@@ -242,7 +243,8 @@ python3 scripts/arch/check_boundaries.py --baseline arch/baseline.json \
 2. `actions/setup-python@v5`；
 3. 只安装 `pyyaml==6.0.3`（`pyproject.toml` 既有 pin；checker 其余全部是标准库）；
 4. 跑 `python scripts/arch/check_boundaries.py --baseline arch/baseline.json`；
-5. 该 job 是 `all-checks-passed` 的 `needs` 之一，失败会让聚合 required check 变红。
+5. 该 job 是 `all-checks-passed` 的 `needs` 之一；只要分支保护要求这个聚合 check，
+   `arch-gate` 失败就会让 required check 变红（分支保护是仓外设置）。
 
 **CI 失败怎么读**：先看 `regressions`（哪个 class pair、超了多少），再看
 `module pairs above baseline`（增长落在哪个模块对），最后看 sample 的 `file:line`。
