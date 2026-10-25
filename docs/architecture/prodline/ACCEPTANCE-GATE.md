@@ -35,6 +35,21 @@ build/install/runtime/quality 的真实证据（A/B 区才生产），也不冻�
 | source evidence 缺失 / provenance 非 real / status skip | `SKIP` | 同上 |
 | source evidence 形状坏 / status fail / commit 不一致 | `FAIL` | |
 
+**commit 与链是 accept 的默认行为**（P1.5 起）：
+
+- `accept` 把 report 的 `commit`（显式 `--commit`，否则 `git HEAD`）传给
+  `receipt_check.check_paths(..., commit=...)`，因此**每一份** receipt 的 `commit`
+  必须等于 report commit。单份错 commit 让该 stage `FAIL`；同一目录里两份 receipt
+  的 commit 不一致（mixed-commit）同样 `FAIL`。report 的 `receipts[]` 条目会记录
+  每份 receipt 自己的 `commit`，便于事后定位是哪一份错。
+- `accept` 调 `check_paths(..., verify_files=True)`，**默认**复算 receipt 指向的
+  每个本地文件的 sha256（`evidence[]`、build `artifacts[]` 含 `manifest_path`、
+  install `artifact{}`、release `from/to_artifact`）。篡改、陈旧 sha、文件缺失都让
+  该 stage `FAIL`。这不是重算 build/install/runtime 事实，`aggregate_only` 仍成立，
+  见 §3。
+- 扫描的是 `--receipts-dir` 下**全部** receipt，不只是 `--only` 选中的 stage；任何
+  一份坏 receipt 的 loader 级问题都会让 report `verdict=fail`（fail-closed）。
+
 report 的 `verdict`：
 
 | verdict | 条件 | accept 退出码 |
@@ -67,9 +82,10 @@ python -m prodline.gates.receipt_check --receipts-dir artifacts/receipts --forma
    - `release-receipt/v1`：`from_artifact` + `to_artifact` + `upgrade_ok` + `rollback_ok`。
 4. **commit**：给了 `--commit` 就逐份比对；扫描模式默认拒绝 mixed commits
    （`--allow-mixed-commits` 可显式放开）。
-5. **sha256 链**（可选 `--verify-files`）：`evidence[]`、build `artifacts[]`
+5. **sha256 链**：`evidence[]`、build `artifacts[]`
    （含 `manifest_path`）、install `artifact{}`、release `from/to_artifact` 的
-   path→sha256 复算；文件缺失或 1 字节篡改都报错。
+   path→sha256 复算；文件缺失或 1 字节篡改都报错。CLI 用 `--verify-files` 显式开启；
+   **`accept` 默认开启**（见 §1），所以走 accept 的验收不需要再单独记得加参数。
 6. **目录过滤**：只把 `schema` 命中注册表的 JSON 当 receipt；
    `artifact-manifest.json` / source evidence / 上一次的 `acceptance-report.json`
    会被忽略。文件名像 receipt 但 JSON 坏、或 schema 未注册但形如
@@ -93,6 +109,10 @@ receipt）。退出码：0 全绿 / 1 有问题 / 2 输入或配置错误（含�
 **不重算**版本线与 lockfile 哈希。需要复算时显式调用
 `prodline.stages.source.verify_source_evidence(evidence, root)`（A02 使用）。
 这一条是本层唯一的“聚合 + 形状检查”特例，不得扩展成 accept 内重算。
+
+§1 的 `verify_files` 与这条不冲突：accept 只复算 receipt 自己声明的
+`path→sha256`（证明“文件还是 receipt 记录的那份”），不重算 build/install 的
+版本、树、锁文件内容。
 
 ## 4. `acceptance-report.json`
 
@@ -125,9 +145,9 @@ receipt）。退出码：0 全绿 / 1 有问题 / 2 输入或配置错误（含�
 }
 ```
 
-`receipts[]` 每条含 `path + sha256`（以及 schema/stage/status/provenance），
-按 stage 顺序排列。stage 条目额外带 `reason`、`receipts[]` 或 `evidence[]`——
-报告顶层仍是契约的 5 个字段。
+`receipts[]` 每条含 `path + sha256 + commit`（以及 schema/stage/status/provenance；
+坏 receipt 还带 `problems`），按 stage 顺序排列。stage 条目额外带 `reason`、
+`receipts[]` 或 `evidence[]`——报告顶层仍是契约的 5 个字段。
 
 ## 5. CI 接线
 
