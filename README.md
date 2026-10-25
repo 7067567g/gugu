@@ -13,7 +13,7 @@ Agent 内核（会话记忆、技能沉淀、子代理、定时任务、终端/�
 | 模式 | 是什么 | 状态 |
 |---|---|---|
 | **工作 Work** | 通用 Agent 工作台：对话、文件、终端、浏览器、技能与记忆，全在会话里发生 | ✅ 可用 |
-| **设计 Design** | 无限画布创作：文生图/图生图、文/图生视频异步任务、素材落画布、本地工程持久化；对话与画布并存 | ✅ P0 可用（实时引导通道待补） |
+| **设计 Design** | 无限画布创作：文生图/图生图、文/图生视频异步任务、素材落画布、本地工程持久化；对话与画布并存 | ✅ P0 可用（`navigate`/实时引导通道待补） |
 | **编程 Code** | 代码工程模式：编辑器、diff 审批、LSP（复用内核编码能力） | 📋 规划中 |
 
 顶栏左角的三档切换器负责在模式间跳转，每个模式有自己的布局与工具面板——
@@ -40,13 +40,11 @@ Agent 内核（会话记忆、技能沉淀、子代理、定时任务、终端/�
 P0 只证明一条链路：**任意界面找到 AI 输入框 → 说一句“把这个 repo 变成架构图 + 3 张配图”
 → Agent 自主完成并落到画布 → 一句修正 → 导出**，全程引导可中断、结束零残留。
 
-- 能力面：11 个 capability 全部 `ready`（M3b 起 `navigate` 四界面真跳），单工具
-  `gugu_capability` 发现/调用；画布放置幂等、原地替换、undo、导出。
+- 能力面：11 个 capability（10 `ready` + `navigate` `planned`），单工具 `gugu_capability`
+  发现/调用；画布放置幂等、原地替换、undo、导出。
 - 入口：**⌘⌥A / Ctrl+Alt+A** 或 ⌘K 命令面板；复用现有 composer，不新造聊天框。
-- 引导：`highlight` / `clear_guidance`，app 级 runtime 在任意界面消费；7 个中断源零残留
-  （overlay/target/listener/timer/焦点/滚动/布局）。
-- 真实模型：本环境无网关凭据，`qwen-image-2.0` 厂商实测 **BLOCKED**；
-  证据与补齐方式见 `runs/gugu-p0-m3b-global-reach/reports/G3-BLOCKED.md`。
+- 引导：`highlight` / `clear_guidance`，7 个中断源零残留（overlay/target/listener/timer/
+  焦点/滚动/布局）。
 - 使用说明：[docs/08-p0-usage.md](docs/08-p0-usage.md)；
   已知限制：[docs/09-known-limitations.md](docs/09-known-limitations.md)；
   能力契约：[docs/05-agent-capabilities.md](docs/05-agent-capabilities.md)。
