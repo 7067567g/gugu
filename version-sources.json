@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generated_by": "WS-2 / T-02 (run gugu-l1-o1, D-004)",
-  "description": "Machine-readable map of the version lines in this workspace. 'assert' is the expectation the release-consistency test enforces: a literal version, 'semver' (any valid semver, read dynamically), or 'unverified' (registered only, never compared).",
+  "generated_by": "WS-2 / T-02 (run gugu-l1-o1, D-004); B14 bootstrap-installer source added by gugu-pl-p1-source",
+  "description": "Machine-readable map of the version lines in this workspace. 'assert' is the expectation the release-consistency test enforces: a literal version, 'semver' (any valid semver, read dynamically), or 'unverified' (registered only, never compared). Four release lines (product / upstream_kernel / upstream / upstream_desktop) are asserted; bootstrap_installer_tauri is registered as an auxiliary source (B14) so its independent line cannot drift silently.",
   "sources": [
     {
       "group": "product",
@@ -34,6 +34,14 @@
       "assert": "0.17.6",
       "verified": true,
       "note": "desktop shell release line; independent of the product version (D-004)"
+    },
+    {
+      "group": "bootstrap_installer_tauri",
+      "path": "apps/bootstrap-installer/src-tauri/tauri.conf.json",
+      "pointer": "version",
+      "assert": "0.21.1",
+      "verified": true,
+      "note": "Tauri bootstrap installer shell (B14): its own release line, asserted literally so drift is visible; not expected to equal the product, kernel or desktop version"
     },
     {
       "group": "workspace_unclassified",

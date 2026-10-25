@@ -16,7 +16,14 @@ from pathlib import Path
 
 _SEMVER = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)")
 
-_EXPECTED_GROUPS = {"product", "upstream_kernel", "upstream", "upstream_desktop", "workspace_unclassified"}
+_EXPECTED_GROUPS = {
+    "product",
+    "upstream_kernel",
+    "upstream",
+    "upstream_desktop",
+    "bootstrap_installer_tauri",  # B14: the Tauri bootstrap installer's own line
+    "workspace_unclassified",
+}
 
 
 def _declared_product_version(root: Path) -> str:
@@ -115,6 +122,10 @@ def _write_minimal_tree(root: Path) -> None:
     (root / "arch" / "upstream.lock").write_text('{"tag": "v9.9.9", "commit": "abc"}', encoding="utf-8")
     (root / "apps" / "desktop").mkdir(parents=True)
     (root / "apps" / "desktop" / "package.json").write_text('{"version": "4.5.6"}', encoding="utf-8")
+    (root / "apps" / "bootstrap-installer" / "src-tauri").mkdir(parents=True)
+    (root / "apps" / "bootstrap-installer" / "src-tauri" / "tauri.conf.json").write_text(
+        '{"version": "7.8.9"}', encoding="utf-8"
+    )
     (root / "package.json").write_text('{"version": "1.0.0"}', encoding="utf-8")
     manifest = {
         "schema": 1,
@@ -123,6 +134,7 @@ def _write_minimal_tree(root: Path) -> None:
             {"group": "upstream_kernel", "path": "pyproject.toml", "pointer": "project.version", "assert": "1.2.3", "verified": True},
             {"group": "upstream", "path": "arch/upstream.lock", "pointer": "tag", "assert": "v9.9.9", "verified": True},
             {"group": "upstream_desktop", "path": "apps/desktop/package.json", "pointer": "version", "assert": "4.5.6", "verified": True},
+            {"group": "bootstrap_installer_tauri", "path": "apps/bootstrap-installer/src-tauri/tauri.conf.json", "pointer": "version", "assert": "7.8.9", "verified": True},
             {"group": "workspace_unclassified", "path": "package.json", "pointer": "version", "assert": "unverified", "verified": False},
         ],
     }
@@ -193,6 +205,40 @@ def test_version_sources_manifest_is_consistent_with_repo() -> None:
 def test_manifest_flags_root_package_json_as_unverified() -> None:
     entry = next(e for e in _load_manifest()["sources"] if e["path"] == "package.json")
     assert entry["assert"] == "unverified" and entry["verified"] is False
+
+
+def test_manifest_registers_tauri_bootstrap_installer() -> None:
+    """B14: ``tauri.conf.json`` has its own release line and must not be omitted."""
+    entry = next(
+        e for e in _load_manifest()["sources"] if e["group"] == "bootstrap_installer_tauri"
+    )
+    assert entry["path"] == "apps/bootstrap-installer/src-tauri/tauri.conf.json"
+    assert entry["pointer"] == "version"
+    assert entry["assert"] == "0.21.1"
+    assert entry["verified"] is True
+
+
+def test_manifest_reports_missing_tauri_registration(tmp_path: Path) -> None:
+    """Discriminating counterexample for B14: dropping the group must be reported."""
+    _write_minimal_tree(tmp_path)
+    manifest = json.loads((tmp_path / "version-sources.json").read_text(encoding="utf-8"))
+    manifest["sources"] = [
+        entry for entry in manifest["sources"]
+        if entry["group"] != "bootstrap_installer_tauri"
+    ]
+    (tmp_path / "version-sources.json").write_text(json.dumps(manifest), encoding="utf-8")
+    problems = manifest_problems(tmp_path)
+    assert any("bootstrap_installer_tauri" in p for p in problems), problems
+
+
+def test_manifest_reports_tauri_version_drift(tmp_path: Path) -> None:
+    """The tauri line is asserted literally, so drift cannot pass silently."""
+    _write_minimal_tree(tmp_path)
+    (tmp_path / "apps" / "bootstrap-installer" / "src-tauri" / "tauri.conf.json").write_text(
+        '{"version": "9.9.9"}', encoding="utf-8"
+    )
+    problems = manifest_problems(tmp_path)
+    assert any("tauri.conf.json" in p and "9.9.9" in p for p in problems), problems
 
 
 def test_manifest_reports_wrong_declared_value(tmp_path: Path) -> None:
