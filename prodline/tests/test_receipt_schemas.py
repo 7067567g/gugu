@@ -22,9 +22,10 @@ import yaml
 
 TESTS_DIR = Path(__file__).resolve().parent
 PRODLINE = TESTS_DIR.parent
-sys.path.insert(0, str(TESTS_DIR))
+REPO_ROOT = PRODLINE.parent
+sys.path.insert(0, str(REPO_ROOT))
 
-from _schema_subset import (  # noqa: E402  (path bootstrap above)
+from prodline.schema_subset import (  # noqa: E402  (path bootstrap above)
     UnresolvableRef,
     UnsupportedKeyword,
     assert_supported_schema,

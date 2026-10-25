@@ -13,11 +13,12 @@ from pathlib import Path
 
 import yaml
 
-TESTS_DIR = Path(__file__).resolve().parent
-sys.path.insert(0, str(TESTS_DIR))
-from _schema_subset import resolve_ref  # noqa: E402  (path bootstrap above)
-
 PRODLINE = Path(__file__).resolve().parents[1]
+REPO_ROOT = PRODLINE.parent
+sys.path.insert(0, str(REPO_ROOT))
+
+from prodline.schema_subset import resolve_ref  # noqa: E402  (path bootstrap above)
+
 PIPELINE_PATH = PRODLINE / "pipeline.yaml"
 SCHEMAS_DIR = PRODLINE / "schemas"
 

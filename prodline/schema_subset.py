@@ -1,11 +1,16 @@
-"""Minimal JSON Schema 2020-12 subset validator (test support only).
+"""Minimal JSON Schema 2020-12 subset validator (stdlib only).
 
 Why this exists
 ---------------
 The P1 contract forbids new Python dependencies, and the project venv does not
 ship ``jsonschema``.  The six receipt schemas therefore deliberately stay inside
 a small, explicit keyword subset, and this module validates both the schemas'
-shape and sample receipts against that subset.
+shape and receipts against that subset.
+
+It started life as ``prodline/tests/_schema_subset.py``.  P1.3 promoted it to
+``prodline/schema_subset.py`` because ``prodline/gates/receipt_check.py`` is a
+runtime gate and must not import a test directory; the implementation (and the
+supported-keyword allowlist) is unchanged.
 
 Supported keywords
 ------------------
