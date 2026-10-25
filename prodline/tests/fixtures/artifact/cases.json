@@ -1,0 +1,142 @@
+{
+  "schema": "gugu.prodline-artifact-fixture-cases/v1",
+  "description": "Negative/positive fixtures for artifact-manifest/v1. Every case is built at test time from tree/base by fixture_builder.py; no zip is committed. 'problems_contain' entries must each appear in the checker output.",
+  "cases": [
+    {
+      "id": "valid",
+      "expect": "pass",
+      "problems_contain": []
+    },
+    {
+      "id": "dirty-true",
+      "expect": "fail",
+      "manifest_patch": {"dirty": true},
+      "problems_contain": ["dirty", "expected const False"]
+    },
+    {
+      "id": "missing-git-tree",
+      "expect": "fail",
+      "manifest_patch": {"git_tree": null},
+      "problems_contain": ["git_tree", "missing required property"]
+    },
+    {
+      "id": "version-mismatch",
+      "expect": "fail",
+      "manifest_patch": {"desktop_version": "0.17.5"},
+      "problems_contain": [
+        "desktop_version",
+        "does not match zip apps/desktop/package.json"
+      ]
+    },
+    {
+      "id": "kernel-version-mismatch",
+      "expect": "fail",
+      "manifest_patch": {"upstream_kernel_version": "0.21.4"},
+      "problems_contain": [
+        "upstream_kernel_version",
+        "does not match zip pyproject.toml"
+      ]
+    },
+    {
+      "id": "files-count-mismatch",
+      "expect": "fail",
+      "manifest_patch": {"files_count": 10},
+      "problems_contain": ["files_count mismatch"]
+    },
+    {
+      "id": "artifact-sha-mismatch",
+      "expect": "fail",
+      "manifest_patch": {"artifact_sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000"},
+      "problems_contain": ["artifact: sha256 mismatch"]
+    },
+    {
+      "id": "artifact-bytes-mismatch",
+      "expect": "fail",
+      "manifest_patch": {"artifact_bytes": 1},
+      "problems_contain": ["artifact: byte size mismatch"]
+    },
+    {
+      "id": "files-sha-mismatch",
+      "expect": "fail",
+      "manifest_patch": {"files_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111"},
+      "problems_contain": ["files_sha256 mismatch"]
+    },
+    {
+      "id": "extra-member",
+      "expect": "fail",
+      "zip_add": {"UNLISTED.txt": "not listed in FILES.sha256\n"},
+      "problems_contain": ["present in zip but not listed in FILES.sha256"]
+    },
+    {
+      "id": "missing-member",
+      "expect": "fail",
+      "zip_remove": ["docs/note.md"],
+      "problems_contain": ["listed in FILES.sha256 but missing from zip"]
+    },
+    {
+      "id": "file-hash-mismatch",
+      "expect": "fail",
+      "files_hash_override": {"README.md": "0000000000000000000000000000000000000000000000000000000000000000"},
+      "problems_contain": ["files: sha256 mismatch for README.md"]
+    },
+    {
+      "id": "unsafe-parent-entry",
+      "expect": "fail",
+      "zip_add": {"../escape.txt": "zip-slip\n"},
+      "problems_contain": ["escapes or is not canonical"]
+    },
+    {
+      "id": "absolute-entry",
+      "expect": "fail",
+      "zip_add": {"/tmp/escape.txt": "absolute\n"},
+      "problems_contain": ["zip entry is absolute"]
+    },
+    {
+      "id": "forbidden-git-tree",
+      "expect": "fail",
+      "zip_add": {".git/config": "[core]\n"},
+      "problems_contain": ["forbidden tree in zip"]
+    },
+    {
+      "id": "git-tree-mismatch",
+      "expect": "fail",
+      "manifest_patch": {"git_tree": "ffffffffffffffffffffffffffffffffffffffff"},
+      "problems_contain": ["git_tree: rebuilt tree does not match manifest"]
+    },
+    {
+      "id": "fixture-without-reason",
+      "expect": "fail",
+      "manifest_patch": {"provenance": "fixture"},
+      "problems_contain": ["requires a non-empty fixture_reason"]
+    },
+    {
+      "id": "missing-runner-key",
+      "expect": "fail",
+      "manifest_patch": {"runner": {"uv": null}},
+      "problems_contain": ["runner", "missing required property 'uv'"]
+    },
+    {
+      "id": "bad-producer",
+      "expect": "fail",
+      "manifest_patch": {"producer": {"tool": "prodline/stages/other.py"}},
+      "problems_contain": [
+        "producer.tool",
+        "expected const 'prodline/stages/build.py'"
+      ]
+    },
+    {
+      "id": "bad-schema-id",
+      "expect": "fail",
+      "manifest_patch": {"schema": "artifact-manifest/v2"},
+      "problems_contain": ["schema", "expected const 'artifact-manifest/v1'"]
+    },
+    {
+      "id": "files-lists-itself",
+      "expect": "fail",
+      "files_append": [
+        "2222222222222222222222222222222222222222222222222222222222222222  FILES.sha256"
+      ],
+      "problems_contain": ["must not list itself"]
+    }
+  ]
+}
