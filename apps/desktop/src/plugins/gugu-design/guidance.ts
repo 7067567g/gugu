@@ -407,3 +407,29 @@ export function createGuidanceLayer(options: GuidanceLayerOptions = {}): Guidanc
 
 /** 桌面单例：overlay 直接挂 body，不参与 React 渲染。 */
 export const guidanceLayer = createGuidanceLayer()
+
+export type GuidanceTickAction = 'clear' | 'ignore' | 'show'
+
+export interface GuidanceTickInput {
+  active_id: null | string
+  command: null | { guidance_id: string }
+  /** 本地已收尾、但 DELETE 可能还没落地的 step id。 */
+  dismissed: ReadonlySet<string>
+}
+
+/**
+ * 轮询决策（纯函数，便于测试）：
+ * - 邮箱空了但本地还在引导 → clear（Agent 取消）；
+ * - 同一步 / 本地已收尾的步 → ignore（避免 ESC 后又被轮询画回来）；
+ * - 其余 → show（调用方先清掉当前步，绝不叠层）。
+ */
+export function planGuidanceTick(input: GuidanceTickInput): GuidanceTickAction {
+  const command = input.command
+  if (!command) {
+    return input.active_id ? 'clear' : 'ignore'
+  }
+  if (command.guidance_id === input.active_id || input.dismissed.has(command.guidance_id)) {
+    return 'ignore'
+  }
+  return 'show'
+}

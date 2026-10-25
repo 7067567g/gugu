@@ -19,7 +19,7 @@ import {
 } from './api'
 import { DesignCanvas, type PendingCommentAnchor } from './canvas'
 import { $designView, designController } from './controller'
-import { guidanceLayer } from './guidance'
+import { guidanceLayer, planGuidanceTick } from './guidance'
 import { t } from './i18n'
 import type { CanvasTool } from './types'
 
@@ -272,8 +272,14 @@ function Workspace({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     let stopped = false
     let inFlight = false
+    // 本地已经收尾的 step id：DELETE 还没有落地时，轮询不能把它又画回来。
+    const dismissed = new Set<string>()
     const unsubscribe = guidanceLayer.subscribe(state => {
       if (state.status === 'idle' && state.last_end) {
+        dismissed.add(state.last_end.guidance_id)
+        if (dismissed.size > 32) {
+          dismissed.clear()
+        }
         void dismissGuidance(state.last_end.guidance_id)
       }
     })
@@ -285,8 +291,28 @@ function Workspace({ onBack }: { onBack: () => void }) {
       inFlight = true
       try {
         const command = await fetchGuidance()
-        if (stopped || !command || guidanceLayer.activeId() === command.guidance_id) {
+        if (stopped) {
           return
+        }
+        const action = planGuidanceTick({
+          active_id: guidanceLayer.activeId(),
+          command,
+          dismissed
+        })
+        if (action === 'ignore') {
+          return
+        }
+        if (action === 'clear') {
+          // Agent 用 clear_guidance 删了邮箱：本地也立刻收尾。
+          guidanceLayer.clear()
+          return
+        }
+        if (!command) {
+          return
+        }
+        if (guidanceLayer.activeId()) {
+          // 邮箱换了一步：旧 step 按 Agent 替换收尾，绝不叠层。
+          guidanceLayer.clear()
         }
         try {
           guidanceLayer.show({
@@ -298,6 +324,7 @@ function Workspace({ onBack }: { onBack: () => void }) {
           })
         } catch {
           // 目标不在当前 DOM（例如面板被折叠）：不留假状态，直接清掉这一步。
+          dismissed.add(command.guidance_id)
           void dismissGuidance(command.guidance_id)
         }
       } catch {

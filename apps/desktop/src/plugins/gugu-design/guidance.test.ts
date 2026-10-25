@@ -7,7 +7,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createGuidanceLayer, GuidanceError, type GuidanceLayer } from './guidance'
+import { createGuidanceLayer, GuidanceError, planGuidanceTick, type GuidanceLayer } from './guidance'
 
 let layer: GuidanceLayer
 let sequence = 0
@@ -340,6 +340,34 @@ describe('exception path', () => {
 
     expect(errorCode(() => layer.show({ target_anchor: 'design.canvas' }))).toBe('render_failed')
     expectZeroResidue(canvas)
+  })
+})
+
+describe('poll planning', () => {
+  it('clears locally when the agent removed the mailbox', () => {
+    expect(planGuidanceTick({ active_id: 'gd-1', command: null, dismissed: new Set() })).toBe('clear')
+  })
+
+  it('ignores an empty mailbox when nothing is active', () => {
+    expect(planGuidanceTick({ active_id: null, command: null, dismissed: new Set() })).toBe('ignore')
+  })
+
+  it('ignores the step that is already active', () => {
+    expect(planGuidanceTick({ active_id: 'gd-1', command: { guidance_id: 'gd-1' }, dismissed: new Set() })).toBe(
+      'ignore'
+    )
+  })
+
+  it('does not resurrect a step dismissed locally before its DELETE landed', () => {
+    expect(
+      planGuidanceTick({ active_id: null, command: { guidance_id: 'gd-1' }, dismissed: new Set(['gd-1']) })
+    ).toBe('ignore')
+  })
+
+  it('shows a replacement step', () => {
+    expect(
+      planGuidanceTick({ active_id: 'gd-1', command: { guidance_id: 'gd-2' }, dismissed: new Set(['gd-1']) })
+    ).toBe('show')
   })
 })
 
