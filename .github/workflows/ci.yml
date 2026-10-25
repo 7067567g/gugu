@@ -116,10 +116,11 @@ jobs:
 
   # Fast cross-interpreter signal for the CI-harness test suite. The 40%
   # coverage floor lives in the dedicated `coverage` job below so the matrix
-  # lane stays cheap. Both lanes install the exact [dev] pins plus the PyYAML
-  # pin from [project].dependencies: `tests/ci/test_ci_workflow_wiring.py`
-  # parses ci.yml as YAML, and neither lane installs the package itself, so
-  # without it every run dies in collection with `ModuleNotFoundError: yaml`.
+  # lane stays cheap. Both lanes install the [dev] pins plus the two
+  # [project].dependencies pins `tests/ci` actually imports: PyYAML for the
+  # wiring test (it parses ci.yml as data) and httpx for tests/conftest.py's
+  # autouse MoA fixture (agent.moa_loop -> hermes_cli.auth -> httpx). Without
+  # them the lane dies in collection/setup before running a single test.
   pytest:
     name: pytest (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
@@ -135,7 +136,7 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pyyaml==6.0.3 pytest==9.1.1 pytest-cov==7.1.0
+          python -m pip install "httpx[socks]==0.28.1" pyyaml==6.0.3 pytest==9.1.1 pytest-cov==7.1.0
       - name: Run tests/ci
         env:
           HERMES_HOME: ${{ runner.temp }}/hermes-home
@@ -183,7 +184,7 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pyyaml==6.0.3 pytest==9.1.1 pytest-cov==7.1.0
+          python -m pip install "httpx[socks]==0.28.1" pyyaml==6.0.3 pytest==9.1.1 pytest-cov==7.1.0
       - name: Run tests/ci with coverage gate
         env:
           HERMES_HOME: ${{ runner.temp }}/hermes-home

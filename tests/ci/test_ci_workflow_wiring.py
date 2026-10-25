@@ -4,9 +4,11 @@ These tests parse ``.github/workflows/ci.yml`` and ``pyproject.toml`` as data
 (YAML / TOML) instead of grepping strings, so a change that merely renames a
 job or moves a flag is still detectable. They are intentionally stdlib-only
 plus PyYAML: the CI lanes they guard install the exact pytest/pytest-cov pins
-from ``[dev]`` plus the ``pyyaml`` pin from ``[project].dependencies`` (the
-package itself is not installed on the fast lane, and this module imports
-``yaml`` at module scope).
+from ``[dev]`` plus the ``pyyaml``/``httpx`` pins from
+``[project].dependencies`` (the package itself is not installed on the fast
+lane, and this module imports ``yaml`` at module scope while the root
+``conftest.py`` autouse fixture imports the ``agent`` -> ``hermes_cli`` chain,
+which reaches ``httpx``).
 
 Scope: job graph (``pytest`` matrix on 3.11 + 3.12, the wider
 ``pytest-suites`` regression lane, the ``desktop-vitest`` UI lane, a
@@ -182,6 +184,12 @@ def test_pytest_job_runs_matrix_on_supported_pythons() -> None:
     assert "pyyaml==6.0.3" in text, (
         "pytest job must install the PyYAML pin (wiring test parses ci.yml as YAML)"
     )
+    # tests/conftest.py imports agent.moa_loop in an autouse fixture, whose
+    # import chain reaches hermes_cli.auth -> httpx; without it every test
+    # errors at setup with `ModuleNotFoundError: httpx`.
+    assert '"httpx[socks]==0.28.1"' in text, (
+        "pytest job must install the httpx pin needed by the root conftest fixture"
+    )
     assert re.search(r"python -m pytest tests/ci\b", text), (
         "pytest job must run `python -m pytest tests/ci`"
     )
@@ -213,6 +221,9 @@ def test_coverage_job_enforces_threshold() -> None:
     assert "pytest-cov==7.1.0" in text, "coverage job must install pytest-cov==7.1.0"
     assert "pyyaml==6.0.3" in text, (
         "coverage job must install the PyYAML pin so tests/ci can collect the wiring test"
+    )
+    assert '"httpx[socks]==0.28.1"' in text, (
+        "coverage job must install the httpx pin needed by the root conftest fixture"
     )
     assert re.search(r"python -m pytest tests/ci\b", text), (
         "coverage job must run the tests/ci suite"
