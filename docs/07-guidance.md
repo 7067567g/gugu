@@ -1,6 +1,8 @@
-# 07 · 引导层（M2）
+# 07 · 引导层（M2，P0 收口保留）
 
-> 状态：M2（2026-10-25）。契约：`gugu-p0-pipeline/ROUND-SPEC.md` 硬边界 9；
+> 状态：M3 / P0 收口（2026-10-25）。引导层在 M2 交付，M3 未改行为；本文档仍是零残留
+> 契约与传输限制的事实源。已知限制见 `docs/09-known-limitations.md` §4。
+> 契约：`gugu-p0-pipeline/ROUND-SPEC.md` 硬边界 9；
 > 产品规范：`strategy/product/gugu-p0-consolidation.md` §4。
 > 代码：`apps/desktop/src/plugins/gugu-design/guidance.ts` +
 > `plugins/gugu_capabilities/{registry,executor,store}.py` +
