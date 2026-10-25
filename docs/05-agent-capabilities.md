@@ -1,8 +1,10 @@
 # 05 · Agent capabilities（P0 M0 骨架）
 
-> 状态：M0（2026-10-25）。本轮只做**契约 + 最小读写**：真实生成在 M1，引导层在 M2。
+> 状态：M1（2026-10-25）。M0 的契约 + 最小读写之上，M1 接入真实生成（Mermaid→SVG /
+> 主备模型→显式 mock）、原地修正与导出；引导层仍在 M2。
 > 代码事实源：`plugins/gugu_capabilities/registry.py`（能力/锚点）、`executor.py`（执行）、
-> `store.py`（画布读写）。本文不重复 schema 细节，只解释边界与取舍。
+> `store.py`（画布/资产）、`diagram.py` / `images.py` / `export.py`（M1）。
+> 本文不重复 schema 细节，只解释边界与取舍。
 
 ## 1. 一个 AI 输入框
 
@@ -14,7 +16,7 @@
 - 决策是纯函数 `agent-entry.ts::planAiEntry`，快捷键与命令面板共用；单测覆盖 fallback。
 - 这是 M0 的入口；M1 的 hero flow 会在这个输入框里接 plan strip 与能力编排。
 
-## 2. capability registry v0（10 个）
+## 2. capability registry（11 个）
 
 每个能力在 registry 里都有：`id / semantics / input_schema / output_schema /
 side_effects / requires_approval / ui_anchors / examples`，外加 `status` 与 `milestone`。
@@ -25,13 +27,14 @@ side_effects / requires_approval / ui_anchors / examples`，外加 `status` 与 
 | `navigate(screen)` | planned (M1) | 否 | 契约登记；跨进程导航通道 M1 做 |
 | `read_state(scope)` | ready | 否 | 读 surface / project / canvas / selection |
 | `list_capabilities()` | ready | 否 | 返回完整 registry |
-| `generate_diagram(source)` | planned (M1) | 是 | 真实生成 M1；mock 必须显式标注 |
-| `generate_image(prompt, refs)` | planned (M1) | 是 | 真实生成 M1；模型名走配置/环境变量 |
+| `generate_diagram(source)` | ready (M1) | 是 | repo/README/outline → Mermaid canonical → SVG asset；失败 outline SVG → 文本大纲 |
+| `generate_image(prompt, refs)` | ready (M1) | 是 | 主 qwen-image-2.0 → 备 gpt-image-2-medium → 非生产显式 mock；模型名走 env |
 | `place_on_canvas(artifact, position)` | ready | 否 | 落一个已有 asset；同 key 幂等 |
 | `update_artifact(id, …)` | ready | 否 | 原地替换 asset/几何，不新增副本 |
 | `highlight(target, text)` | planned (M2) | 否 | 引导层 M2；本轮不渲染 overlay |
 | `clear_guidance()` | planned (M2) | 否 | 零残留契约 M2 |
 | `undo()` | ready | 否 | 画布快照栈（最多 10 步） |
+| `export_canvas(project_id)` | ready (M1) | 否 | 自包含 zip：project.json + assets + preview.svg + manifest 校验和 |
 
 ### 执行信封
 
@@ -42,12 +45,13 @@ side_effects / requires_approval / ui_anchors / examples`，外加 `status` 与 
 
 失败：`{"ok": false, "capability": "...", "error": {"code": "...", "message": "...", "details": {...}}}`。
 稳定错误码：`unknown_capability / invalid_arguments / approval_required / not_implemented /
-project_not_found / project_document_missing / unknown_asset / element_not_found /
-element_conflict / element_locked / generation_required / invalid_position / internal_error`。
+project_required / project_not_found / project_document_missing / unknown_asset / element_not_found /
+element_conflict / element_locked / generation_required / generation_failed / export_failed /
+invalid_position / internal_error`。
 
-**审批**：`generate_*` 标记 `requires_approval`。执行器先校验审批、再校验 planned，所以未审批时
-返回 `approval_required`，审批后仍是 `not_implemented`——不会因为“还没实现”而绕过审批语义。
-M0 的 agent 工具**不暴露** `approved` 参数（模型不能自我审批）；审批入口留给 M1 的 UI/MCP 调用方。
+**审批**：`generate_diagram` / `generate_image` 标记 `requires_approval`。未审批一律
+`approval_required`；执行器不会把“没实现”或“没凭据”变成假成功。agent 工具**不暴露**
+`approved` 参数（模型不能自我审批）；审批入口留给桌面 UI / E2E 调用方。
 
 ## 3. Agent 怎么调用
 
@@ -121,13 +125,15 @@ M0 实际落到桌面的锚点：
 `design.panel` / `design.panel.jobs` / `design.composer` / `design.composer.kind` /
 `design.composer.send`
 
-`guidance.overlay`、`canvas.export` 是 M1/M2 的 planned 锚点，本轮不存在对应 DOM。
+`canvas.export` 在 M1 变成 present（画布工具条的导出按钮）；`guidance.overlay` 仍是 M2 的
+planned 锚点，本轮不存在对应 DOM。
 
 ## 7. 测试与门禁
 
 ```bash
-# 能力契约 + 真跑（22）
-.venv/bin/python -m pytest tests/plugins/test_gugu_capabilities.py -q -x --timeout=600
+# 能力契约 + 真跑（M0 + M1）
+.venv/bin/python -m pytest tests/plugins/test_gugu_capabilities.py \
+  tests/plugins/test_gugu_capabilities_m1.py -q -x --timeout=600
 # agent-state API ↔ read_state 集成（4）
 .venv/bin/python -m pytest tests/plugins/test_gugu_agent_state_api.py -q -x --timeout=600
 # 桌面纯函数
@@ -138,12 +144,14 @@ cd apps/desktop && npx vitest run --project ui \
 .venv/bin/python scripts/arch/check_boundaries.py --baseline arch/baseline.json
 ```
 
-覆盖点：registry meta-schema / 示例参数合法性 / 10 个 id；`list_capabilities`、`read_state`
+覆盖点：registry meta-schema / 示例参数合法性 / 11 个 id；Mermaid→SVG 与两级兜底；SVG 资产
+双校验器一致；主/备/显式 mock 阶梯；instruction 原地换图不增副本；导出 zip；hero flow 计时；`list_capabilities`、`read_state`
 真跑；放置幂等（自然 key + operation_id 重放）；原地替换不增副本；undo 多步与 Host 字段保护；
 审批与 planned 不伪装；插件工具注册与 handler 执行。
 
 ## 8. 下一轮接口
 
-- M1：`generate_*` 真实实现 + 审批入口；`navigate` 跨进程通道；agent 写入走 host RPC/WS；
-  session-scoped toolset 收口；放置接受生成产物（asset 落库后调用同一 `place_on_canvas`）。
+- M1 剩余：`navigate` 跨进程通道；agent 写入走 host RPC/WS（实时可见）；session-scoped
+  toolset 收口；plan strip。
+- M1 已交付：`generate_*` 真实实现 + 审批、原地修正、导出、hero flow E2E（见 `docs/06-hero-flow.md`）。
 - M2：`highlight/clear_guidance` 实现；锚点表直接复用；零残留测试按 `ANCHORS` 枚举目标。
