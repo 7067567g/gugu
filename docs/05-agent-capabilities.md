@@ -125,8 +125,18 @@ M0 实际落到桌面的锚点：
 `design.panel` / `design.panel.jobs` / `design.composer` / `design.composer.kind` /
 `design.composer.send`
 
-`canvas.export` 在 M1 变成 present（画布工具条的导出按钮）；`guidance.overlay` 仍是 M2 的
-planned 锚点，本轮不存在对应 DOM。
+`canvas.export` 在 M1 变成 present（画布工具条的导出按钮）；`guidance.overlay` 在 M2
+变成 present（引导 active 时挂到 `body`），但 `targetable=false`，不能作为高亮目标。
+
+M2 起 `list_capabilities` 的返回信封多一个 `anchors` 字段，Agent 可直接枚举：
+
+```json
+{"id": "canvas.export", "surface": "canvas", "status": "present",
+ "description": "画布导出按钮（M1）", "targetable": true}
+```
+
+`targetable = status == "present" and surface != "guidance"`。排序稳定（按 id），
+`highlight` 的 `unknown_anchor` 错误会带上当前可指锚点列表。详见 `docs/07-guidance.md`。
 
 ## 7. 测试与门禁
 
@@ -136,10 +146,10 @@ planned 锚点，本轮不存在对应 DOM。
   tests/plugins/test_gugu_capabilities_m1.py -q -x --timeout=600
 # agent-state API ↔ read_state 集成（4）
 .venv/bin/python -m pytest tests/plugins/test_gugu_agent_state_api.py -q -x --timeout=600
-# 桌面纯函数
-cd apps/desktop && npx vitest run --project ui \
-  src/plugins/gugu-design/agent-entry.test.ts \
-  src/plugins/gugu-design/agent-state.test.ts
+# 引导层：锚点枚举 + 邮箱 + 端点（13）
+.venv/bin/python -m pytest tests/plugins/test_gugu_guidance.py -q -x --timeout=600
+# 桌面（纯函数 + 零残留 DOM 契约）
+cd apps/desktop && npx vitest run --project ui src/plugins/gugu-design
 # arch
 .venv/bin/python scripts/arch/check_boundaries.py --baseline arch/baseline.json
 ```
@@ -147,11 +157,14 @@ cd apps/desktop && npx vitest run --project ui \
 覆盖点：registry meta-schema / 示例参数合法性 / 11 个 id；Mermaid→SVG 与两级兜底；SVG 资产
 双校验器一致；主/备/显式 mock 阶梯；instruction 原地换图不增副本；导出 zip；hero flow 计时；`list_capabilities`、`read_state`
 真跑；放置幂等（自然 key + operation_id 重放）；原地替换不增副本；undo 多步与 Host 字段保护；
-审批与 planned 不伪装；插件工具注册与 handler 执行。
+审批与 planned 不伪装；插件工具注册与 handler 执行；M2 锚点枚举、highlight 邮箱、
+clear 幂等、7 个中断源的零残留。
 
 ## 8. 下一轮接口
 
 - M1 剩余：`navigate` 跨进程通道；agent 写入走 host RPC/WS（实时可见）；session-scoped
   toolset 收口；plan strip。
 - M1 已交付：`generate_*` 真实实现 + 审批、原地修正、导出、hero flow E2E（见 `docs/06-hero-flow.md`）。
-- M2：`highlight/clear_guidance` 实现；锚点表直接复用；零残留测试按 `ANCHORS` 枚举目标。
+- M2 已交付：`highlight/clear_guidance` ready；锚点表复用并可由 `list_capabilities.anchors`
+  枚举；`/design` 消费引导邮箱；零残留按 7 个中断源自动测试（见 `docs/07-guidance.md`）。
+- M2 剩余：host RPC/WS 取代 1.2s 轮询；多步 step 队列；Python↔TS 锚点漂移自动检测。
