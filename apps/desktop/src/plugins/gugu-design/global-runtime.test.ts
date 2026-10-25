@@ -187,6 +187,36 @@ describe('navigate', () => {
 })
 
 describe('global guidance', () => {
+  it.each(['highlight', 'box', 'label'] as const)(
+    'renders %s on the work surface and leaves nothing behind on stop',
+    async style => {
+      boot()
+      await flush()
+      const target = mountAnchor('work.composer')
+      guidanceCommand = {
+        guidance_id: `gd-work-${style}`,
+        style,
+        target_anchor: 'work.composer',
+        text: 'AI 输入框在这里'
+      }
+
+      await runtime!.tickGuidance()
+
+      expect(layer.activeId()).toBe(`gd-work-${style}`)
+      expect(target.getAttribute('data-gugu-guide-target')).toBe(`gd-work-${style}`)
+      if (style === 'label') {
+        expect(document.querySelector('[data-gugu-guide-label]')?.textContent).toBe('AI 输入框在这里')
+      } else {
+        expect(document.querySelector(`[data-gugu-guide-frame="${style}"]`)).not.toBeNull()
+      }
+
+      runtime!.stop()
+      runtime = null
+      expect(document.querySelectorAll('[data-gugu-guide]')).toHaveLength(0)
+      expect(document.querySelectorAll('[data-gugu-guide-target]')).toHaveLength(0)
+    }
+  )
+
   it('highlights an anchor on a non-design surface and clears to zero residue', async () => {
     boot()
     await flush()
