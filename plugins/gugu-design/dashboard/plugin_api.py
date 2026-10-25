@@ -476,6 +476,48 @@ async def create_project(body: CreateProjectBody):
     return {"id": pid, "document": doc}
 
 
+class AgentStateBody(BaseModel):
+    """渲染端上报的 agent 视角状态（surface/project/selection）。
+
+    只做 ``read_state`` 的输入，不参与画布文档：单个 JSON 文件、最后写入者胜，
+    无历史价值；写失败不该影响画布交互，前端吞掉错误。
+    """
+
+    surface: str = Field(default="unknown", max_length=32)
+    route: str = Field(default="", max_length=200)
+    project_id: Optional[str] = Field(default=None, max_length=64)
+    selection: List[str] = Field(default_factory=list, max_length=64)
+
+
+def _agent_state_path() -> Path:
+    return _designs_root() / "agent-state.json"
+
+
+@router.get("/agent-state")
+async def get_agent_state():
+    path = _agent_state_path()
+    if not path.is_file():
+        return {"state": None}
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"state": None}
+    return {"state": state if isinstance(state, dict) else None}
+
+
+@router.put("/agent-state")
+async def put_agent_state(body: AgentStateBody):
+    state = {
+        "surface": body.surface,
+        "route": body.route,
+        "project_id": body.project_id,
+        "selection": list(body.selection),
+        "updated_at": time.time(),
+    }
+    gs.atomic_write_json(_agent_state_path(), state)
+    return {"ok": True, "state": state}
+
+
 @router.get("/projects/{pid}")
 async def get_project(pid: str):
     d = _project_dir(pid)
