@@ -6,15 +6,15 @@ capability by id, so adding a capability never grows the core tool schema paid
 for on every API call. Handlers live in ``executor.py``; the contract and UI
 anchors live in ``registry.py``.
 
-Agent-callable today (M2): ``list_capabilities`` (includes the anchor inventory)
-/ ``read_state`` / ``generate_diagram`` (Mermaid canonical -> SVG, with
-outline/text fallback) / ``generate_image`` (primary -> fallback -> explicit
-mock) / ``place_on_canvas`` / ``update_artifact`` (including one-sentence
-in-place regeneration) / ``export_canvas`` / ``undo`` / ``highlight`` /
-``clear_guidance``.
-Registered but deliberately deferred: ``navigate`` (routing slice). It returns
-``not_implemented`` — this plugin never fakes a generation or a guidance
-overlay.
+Agent-callable today (M3b): ``navigate`` (four screens, renderer-acked) /
+``list_capabilities`` (includes the anchor inventory) / ``read_state`` /
+``generate_diagram`` (Mermaid canonical -> SVG, with outline/text fallback) /
+``generate_image`` (primary -> fallback -> explicit mock) / ``place_on_canvas`` /
+``update_artifact`` (including one-sentence in-place regeneration) /
+``export_canvas`` / ``undo`` / ``highlight`` / ``clear_guidance``.
+No surface is deliberately deferred now; a capability still returns
+``not_implemented`` when its registry status is ``planned`` — this plugin never
+fakes a generation, a navigation or a guidance overlay.
 """
 
 from __future__ import annotations
@@ -39,7 +39,8 @@ SCHEMA: Dict[str, Any] = {
         "生成用 generate_diagram（Mermaid→SVG，失败降级 outline/文本）与 generate_image"
         "（主/备/显式 mock，mock=true 时不得当作真实生成）。导出用 export_canvas。"
         "引导用 highlight（只指 list_capabilities.anchors 里 targetable=true 的锚点）"
-        "与 clear_guidance（幂等清空）；navigate 仍为 planned。"
+        "与 clear_guidance（幂等清空）；navigate 到 work/design/settings/artifacts 四个界面，"
+        "返回 navigated/route 供 read_state 复核（超时返回 navigated=false，不假报成功）。"
         "需要审批的能力返回 approval_required；不要用本工具伪造生成结果。"
     ),
     "parameters": {

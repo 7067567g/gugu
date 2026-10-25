@@ -8,6 +8,7 @@ arguments against the registry schema, enforces approval, and refuses to run a
 from __future__ import annotations
 
 import logging
+import os
 import re
 import time
 import uuid
@@ -157,6 +158,88 @@ def _read_state(args: Mapping[str, Any]) -> Dict[str, Any]:
         "project": project,
         "canvas": canvas,
         "selection": selection,
+    }
+
+
+_SCREEN_ROUTES: Dict[str, str] = {
+    "work": "/",
+    "design": "/design",
+    "settings": "/settings",
+    "artifacts": "/artifacts",
+}
+
+
+def _canonical_route(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    text = text.split("?", 1)[0].split("#", 1)[0]
+    if not text.startswith("/"):
+        text = f"/{text}"
+    return text.rstrip("/") or "/"
+
+
+def _navigation_timeout_seconds() -> float:
+    raw = os.environ.get("GUGU_NAV_TIMEOUT_MS", "").strip()
+    try:
+        milliseconds = int(raw)
+    except ValueError:
+        return 2.5
+    return min(max(milliseconds, 50), 10_000) / 1000.0
+
+
+def _navigate(args: Mapping[str, Any]) -> Dict[str, Any]:
+    """Write the navigation mailbox and wait for the renderer's agent-state ack.
+
+    The renderer is the only process that can move the router. Success therefore
+    requires ``agent-state.json`` to carry this request id AND the landed route;
+    a missing/slow renderer returns ``navigated: false`` with a reason instead of
+    pretending the app moved.
+    """
+    screen = str(args["screen"])
+    expected_route = _SCREEN_ROUTES[screen]
+    request_id = f"nav-{uuid.uuid4().hex[:12]}"
+    created_at = time.time()
+    store.write_navigation(
+        {
+            "request_id": request_id,
+            "screen": screen,
+            "route": expected_route,
+            "created_at": created_at,
+            "expires_at": created_at + store.NAVIGATION_TTL_SECONDS,
+        }
+    )
+
+    ack: Optional[Mapping[str, Any]] = None
+    deadline = time.monotonic() + _navigation_timeout_seconds()
+    while time.monotonic() < deadline:
+        state = store.read_runtime_state() or {}
+        if str(state.get("nav_request_id") or "") == request_id:
+            if _canonical_route(state.get("route")) == expected_route:
+                ack = state
+                break
+        time.sleep(0.05)
+
+    # The mailbox is one-shot: whichever process polls next must not replay it.
+    store.clear_navigation(request_id)
+
+    if ack is not None:
+        return {
+            "screen": screen,
+            "navigated": True,
+            "route": expected_route,
+            "surface": ack.get("surface") or ack.get("screen") or screen,
+            "request_id": request_id,
+        }
+
+    current = store.read_runtime_state() or {}
+    return {
+        "screen": screen,
+        "navigated": False,
+        "route": _canonical_route(current.get("route")),
+        "surface": current.get("surface"),
+        "request_id": request_id,
+        "reason": "timeout" if current else "no_renderer",
     }
 
 
@@ -382,6 +465,7 @@ def _clear_guidance(_args: Mapping[str, Any]) -> Dict[str, Any]:
 
 
 _HANDLERS: Dict[str, Callable[[Mapping[str, Any]], Dict[str, Any]]] = {
+    "navigate": _navigate,
     "list_capabilities": _list_capabilities,
     "read_state": _read_state,
     "generate_diagram": _generate_diagram,

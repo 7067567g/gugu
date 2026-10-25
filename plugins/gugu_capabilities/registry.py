@@ -47,6 +47,9 @@ ANCHORS: Dict[str, Dict[str, str]] = {
     "design.composer.send": {"surface": "design", "status": "present", "description": "提交生成按钮"},
     "guidance.overlay": {"surface": "guidance", "status": "present", "description": "引导层 overlay 根（active 时挂到 body；不可作为高亮目标）"},
     "canvas.export": {"surface": "canvas", "status": "present", "description": "画布导出按钮（M1）"},
+    "work.composer": {"surface": "work", "status": "present", "description": "核心 Chat 输入框（M3b 全局可达）"},
+    "settings.header": {"surface": "settings", "status": "present", "description": "设置页导航/标题区（M3b 全局可达）"},
+    "artifacts.root": {"surface": "artifacts", "status": "present", "description": "产物库页面根（M3b 全局可达）"},
 }
 
 CAPABILITY_IDS: Tuple[str, ...] = (
@@ -131,16 +134,20 @@ CAPABILITIES: Tuple[Dict[str, Any], ...] = (
             "properties": {
                 "screen": {"type": "string"},
                 "navigated": {"type": "boolean"},
+                "route": {"type": "string"},
+                "surface": {"type": ["string", "null"]},
+                "request_id": {"type": "string"},
+                "reason": {"type": "string"},
             },
             "required": ["screen", "navigated"],
         },
         side_effects=["切换当前界面路由", "关闭当前临时浮层"],
         requires_approval=False,
-        ui_anchors=["design.workspace"],
+        ui_anchors=["design.workspace", "work.composer", "settings.header", "artifacts.root"],
         examples=[{"description": "从任意界面打开设计画布", "arguments": {"screen": "design"}}],
-        status="planned",
-        milestone="M0",
-        notes="M0 只登记契约；真实导航与模式切换在 M1 做（当前桌面渲染层没有跨进程导航通道）。",
+        status="ready",
+        milestone="M3",
+        notes="M3b：桌面 app 级 runtime 轮询 designs/navigation.json → host.navigate；只有 agent-state 回写同一 request_id 且落点路由匹配才算 navigated=true，超时如实返回 false。",
     ),
     _cap(
         cid="read_state",
@@ -558,7 +565,7 @@ def validate_registry() -> list[str]:
             errors.append(f"{where}: semantics must be a meaningful string")
         if entry["status"] not in ("ready", "planned"):
             errors.append(f"{where}: status must be ready|planned")
-        if entry["milestone"] not in ("M0", "M1", "M2"):
+        if entry["milestone"] not in ("M0", "M1", "M2", "M3"):
             errors.append(f"{where}: milestone must be M0|M1|M2")
         if not isinstance(entry["requires_approval"], bool):
             errors.append(f"{where}: requires_approval must be bool")

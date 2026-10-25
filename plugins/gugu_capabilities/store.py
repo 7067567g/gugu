@@ -132,6 +132,55 @@ def clear_guidance(guidance_id: Optional[str] = None) -> bool:
     return True
 
 
+# ---------------------------------------------------------------------------
+# Navigation mailbox (M3b)
+#
+# Same cross-process bridge as guidance: the agent writes the ONE pending
+# navigation request to ``designs/navigation.json`` and the desktop polls it.
+# The renderer calls ``host.navigate(route)`` and publishes ``agent-state.json``
+# with ``nav_request_id`` + the landed route; the executor only reports success
+# after that ack, never from the write alone. Stale requests expire so a restart
+# cannot replay an old navigation. Keep the file name in sync with
+# plugins/gugu-design/dashboard/plugin_api.py.
+# ---------------------------------------------------------------------------
+
+NAVIGATION_TTL_SECONDS = 30.0
+
+
+def navigation_path() -> Path:
+    return designs_root() / "navigation.json"
+
+
+def read_navigation() -> Optional[Dict[str, Any]]:
+    path = navigation_path()
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def write_navigation(payload: Mapping[str, Any]) -> None:
+    _atomic_write_json(navigation_path(), dict(payload))
+
+
+def clear_navigation(request_id: Optional[str] = None) -> bool:
+    """Delete the mailbox; with ``request_id`` only if it still points there."""
+    path = navigation_path()
+    current = read_navigation()
+    if current is None:
+        return False
+    if request_id and str(current.get("request_id") or "") != str(request_id):
+        return False
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return False
+    return True
+
+
 def project_dir(project_id: str) -> Path:
     if not isinstance(project_id, str) or _PROJECT_ID_RE.match(project_id) is None:
         raise StoreError("invalid_project_id", f"非法工程 id: {project_id!r}")

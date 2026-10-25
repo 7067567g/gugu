@@ -457,8 +457,10 @@ def test_registry_status_matches_delivered_milestones():
     assert status["generate_diagram"] == "ready"
     assert status["generate_image"] == "ready"
     assert status["export_canvas"] == "ready"
-    assert status["navigate"] == "planned"
-    # M2 delivered the guidance pair; overlay + lifecycle tests live in
-    # tests/plugins/test_gugu_guidance.py and the desktop vitest suite.
+    assert status["navigate"] == "ready"
+    # M2 delivered the guidance pair; M3b made navigate real. Overlay +
+    # lifecycle tests live in test_gugu_guidance.py / test_gugu_navigate.py and
+    # the desktop vitest suite.
+    assert registry.get_capability("navigate")["milestone"] == "M3"
     assert status["highlight"] == "ready"
     assert status["clear_guidance"] == "ready"

@@ -401,17 +401,14 @@ def test_generate_capability_requires_approval_before_any_work(project, monkeypa
     assert failed["error"]["code"] == "generation_failed"
 
 
-def test_planned_capabilities_never_pretend_to_work(project):
-    # M2 moved highlight/clear_guidance to ready; navigate is the only surface
-    # still deliberately deferred. Assert the exact planned set so a regression
-    # (or a capability silently flipping to ready without a handler) is visible.
+def test_no_capability_is_left_planned_without_a_handler(project):
+    # M3b made navigate real; the registry must not advertise a capability that
+    # the executor cannot run (planned -> not_implemented, ready -> handler).
     planned = [capability["id"] for capability in registry.list_capabilities() if capability["status"] == "planned"]
-    assert planned == ["navigate"]
-
-    result = executor.execute("navigate", {"screen": "design"}, approved=True)
-    assert result["ok"] is False
-    assert result["error"]["code"] == "not_implemented"
-    assert result["error"]["details"]["milestone"] == "M0"
+    assert planned == []
+    for capability in registry.list_capabilities():
+        if capability["status"] == "ready":
+            assert capability["id"] in executor._HANDLERS, capability["id"]
 
 
 def test_invalid_arguments_and_unknown_capability_are_structured(project):

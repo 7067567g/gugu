@@ -487,6 +487,10 @@ class AgentStateBody(BaseModel):
     route: str = Field(default="", max_length=200)
     project_id: Optional[str] = Field(default=None, max_length=64)
     selection: List[str] = Field(default_factory=list, max_length=64)
+    # M3b navigate ack: the requested screen and the one-shot request id. The
+    # agent-side executor trusts this pair (plus route) and nothing else.
+    screen: str = Field(default="", max_length=32)
+    nav_request_id: Optional[str] = Field(default=None, max_length=64)
 
 
 def _agent_state_path() -> Path:
@@ -512,6 +516,8 @@ async def put_agent_state(body: AgentStateBody):
         "route": body.route,
         "project_id": body.project_id,
         "selection": list(body.selection),
+        "screen": body.screen,
+        "nav_request_id": body.nav_request_id,
         "updated_at": time.time(),
     }
     gs.atomic_write_json(_agent_state_path(), state)
@@ -553,6 +559,49 @@ async def dismiss_guidance(guidance_id: Optional[str] = Query(default=None)):
         except (OSError, json.JSONDecodeError):
             return {"cleared": False}
         if not isinstance(current, dict) or str(current.get("guidance_id") or "") != guidance_id:
+            return {"cleared": False}
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return {"cleared": False}
+    return {"cleared": True}
+
+
+# ---- M3b navigation mailbox ------------------------------------------------
+# Same cross-process bridge as guidance: the executor writes the ONE pending
+# navigation request to designs/navigation.json; the app-level desktop runtime
+# polls it, moves the router and publishes agent-state with nav_request_id. The
+# renderer deletes the mailbox after consuming it (id-scoped, so a late DELETE
+# cannot erase a newer request). Keep the file name in sync with
+# plugins/gugu_capabilities/store.py.
+
+def _navigation_path() -> Path:
+    return _designs_root() / "navigation.json"
+
+
+@router.get("/navigation")
+async def get_navigation():
+    path = _navigation_path()
+    if not path.is_file():
+        return {"navigation": None}
+    try:
+        navigation = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"navigation": None}
+    return {"navigation": navigation if isinstance(navigation, dict) else None}
+
+
+@router.delete("/navigation")
+async def dismiss_navigation(request_id: Optional[str] = Query(default=None)):
+    path = _navigation_path()
+    if not path.is_file():
+        return {"cleared": False}
+    if request_id:
+        try:
+            current = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {"cleared": False}
+        if not isinstance(current, dict) or str(current.get("request_id") or "") != request_id:
             return {"cleared": False}
     try:
         path.unlink()

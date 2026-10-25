@@ -27,7 +27,7 @@ side_effects / requires_approval / ui_anchors / examples`，外加 `status` 与 
 
 | 能力 | 状态 | 审批 | 本轮行为 |
 | --- | --- | --- | --- |
-| `navigate(screen)` | planned (M1 剩余) | 否 | 契约登记；跨进程导航通道未交付，P0 后 backlog |
+| `navigate(screen)` | ready (M3b) | 否 | 写导航邮箱；app 级 runtime 真跳 work/design/settings/artifacts，agent-state 回写 request_id 后才报 `navigated=true`，超时如实 false |
 | `read_state(scope)` | ready | 否 | 读 surface / project / canvas / selection |
 | `list_capabilities()` | ready | 否 | 返回完整 registry |
 | `generate_diagram(source)` | ready (M1) | 是 | repo/README/outline → Mermaid canonical → SVG asset；失败 outline SVG → 文本大纲 |
