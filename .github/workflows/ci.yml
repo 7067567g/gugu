@@ -116,8 +116,10 @@ jobs:
 
   # Fast cross-interpreter signal for the CI-harness test suite. The 40%
   # coverage floor lives in the dedicated `coverage` job below so the matrix
-  # lane stays cheap; both lanes install the exact pins from [dev] so a local
-  # reproduction matches CI.
+  # lane stays cheap. Both lanes install the exact [dev] pins plus the PyYAML
+  # pin from [project].dependencies: `tests/ci/test_ci_workflow_wiring.py`
+  # parses ci.yml as YAML, and neither lane installs the package itself, so
+  # without it every run dies in collection with `ModuleNotFoundError: yaml`.
   pytest:
     name: pytest (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
@@ -131,7 +133,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install test dependencies
-        run: python -m pip install --upgrade pip pytest==9.1.1 pytest-cov==7.1.0
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml==6.0.3 pytest==9.1.1 pytest-cov==7.1.0
       - name: Run tests/ci
         env:
           HERMES_HOME: ${{ runner.temp }}/hermes-home
@@ -177,7 +181,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install test dependencies
-        run: python -m pip install --upgrade pip pytest==9.1.1 pytest-cov==7.1.0
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml==6.0.3 pytest==9.1.1 pytest-cov==7.1.0
       - name: Run tests/ci with coverage gate
         env:
           HERMES_HOME: ${{ runner.temp }}/hermes-home
@@ -267,6 +273,56 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  # Linux build lane (A05). A02's artifact contract only exists if CI exercises
+  # it end to end: source evidence -> two deterministic archives -> sha/bytes
+  # identity -> artifact_check (zip/manifest/receipt chain) -> accept asks for
+  # PASS, so a SKIP can never look green. No job-level `if:` and no
+  # `continue-on-error`: a lane that cannot build must turn the aggregator red.
+  # The zip is the same `artifact.zip` + `artifact-manifest.json` pair the B-side
+  # consumes; uploading it keeps A04's cross-platform receipt inspectable.
+  build-linux:
+    name: build-linux (artifact.zip + manifest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install gate dependencies (existing PyYAML pin; no product deps)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml==6.0.3
+      - name: Collect source evidence for this commit
+        run: python -m prodline.stages.source --root . --out artifacts/source-evidence.json
+      - name: Build artifact twice and record the build receipt
+        run: |
+          python -m prodline.stages.build --root . --outdir artifacts/receipts \
+            --require-source-evidence
+      - name: Verify the zip/manifest/receipt chain
+        run: |
+          python -m prodline.gates.artifact_check \
+            --zip artifacts/receipts/artifact.zip \
+            --manifest artifacts/receipts/artifact-manifest.json \
+            --build-receipt artifacts/receipts/build-receipt.json \
+            --repo .
+      - name: Accept source+build (SKIP is not PASS)
+        run: |
+          python -m prodline.runners.accept --only source,build --expect-pass \
+            --out artifacts/receipts/acceptance-report.json
+      - name: Upload Linux artifact bundle (always, so a failed build keeps evidence)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-linux-artifact
+          path: |
+            artifacts/receipts/artifact.zip
+            artifacts/receipts/artifact-manifest.json
+            artifacts/receipts/build-receipt.json
+            artifacts/receipts/acceptance-report.json
+          if-no-files-found: warn
+          retention-days: 14
+
   # Single required status check. `if: always()` makes this job report even
   # when a dependency fails; the explicit step then turns "dependency did not
   # succeed" into a red aggregator instead of a silently pending check.
@@ -277,6 +333,7 @@ jobs:
       - python-compile
       - arch-gate
       - prodline-gate
+      - build-linux
       - build-win
       - desktop-typecheck
       - desktop-vitest
@@ -290,6 +347,7 @@ jobs:
           echo "python-compile: ${{ needs.python-compile.result }}"
           echo "arch-gate: ${{ needs.arch-gate.result }}"
           echo "prodline-gate: ${{ needs.prodline-gate.result }}"
+          echo "build-linux: ${{ needs.build-linux.result }}"
           echo "build-win: ${{ needs.build-win.result }}"
           echo "desktop-typecheck: ${{ needs.desktop-typecheck.result }}"
           echo "desktop-vitest: ${{ needs.desktop-vitest.result }}"
@@ -299,6 +357,7 @@ jobs:
           test "${{ needs.python-compile.result }}" = "success"
           test "${{ needs.arch-gate.result }}" = "success"
           test "${{ needs.prodline-gate.result }}" = "success"
+          test "${{ needs.build-linux.result }}" = "success"
           test "${{ needs.build-win.result }}" = "success"
           test "${{ needs.desktop-typecheck.result }}" = "success"
           test "${{ needs.desktop-vitest.result }}" = "success"

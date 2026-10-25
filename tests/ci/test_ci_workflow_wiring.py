@@ -3,17 +3,21 @@
 These tests parse ``.github/workflows/ci.yml`` and ``pyproject.toml`` as data
 (YAML / TOML) instead of grepping strings, so a change that merely renames a
 job or moves a flag is still detectable. They are intentionally stdlib-only
-plus PyYAML: the CI jobs they guard install only ``pytest`` /
-``pytest-cov`` (plus an editable package install on the wider suites lane).
+plus PyYAML: the CI lanes they guard install the exact pytest/pytest-cov pins
+from ``[dev]`` plus the ``pyyaml`` pin from ``[project].dependencies`` (the
+package itself is not installed on the fast lane, and this module imports
+``yaml`` at module scope).
 
 Scope: job graph (``pytest`` matrix on 3.11 + 3.12, the wider
 ``pytest-suites`` regression lane, the ``desktop-vitest`` UI lane, a
 ``coverage`` job with ``--cov-fail-under=40``, the ``arch-gate`` hardening
 (F2 parse-error gate + F4 checker tests), the P1.3 ``prodline-gate`` lane, the
 A03 ``build-win`` lane (windows-latest, no job-level skip, step-level
-single/dual build, event/tier gate), and an ``all-checks-passed`` aggregator
-whose ``needs`` covers every other job) plus the matching ``[tool.coverage.*]``
-configuration and its measured-baseline comments in ``pyproject.toml``.
+single/dual build, event/tier gate), the A05 ``build-linux`` lane (A02's
+source->build->artifact_check->accept chain, no skip and no soft-fail), and an
+``all-checks-passed`` aggregator whose ``needs`` covers every other job) plus
+the matching ``[tool.coverage.*]`` configuration and its measured-baseline
+comments in ``pyproject.toml``.
 """
 
 from __future__ import annotations
@@ -34,6 +38,7 @@ REQUIRED_JOBS = {
     "python-compile",
     "arch-gate",
     "prodline-gate",
+    "build-linux",
     "build-win",
     "desktop-typecheck",
     "pytest",
@@ -172,6 +177,11 @@ def test_pytest_job_runs_matrix_on_supported_pythons() -> None:
     text = _steps_text(job)
     assert "pytest==9.1.1" in text, "pytest job must pin pytest==9.1.1 (lockstep with [dev])"
     assert "pytest-cov==7.1.0" in text, "pytest job must install pytest-cov==7.1.0"
+    # This module imports yaml at module scope and the fast lane does not
+    # install the package, so the PyYAML pin is part of the lane contract.
+    assert "pyyaml==6.0.3" in text, (
+        "pytest job must install the PyYAML pin (wiring test parses ci.yml as YAML)"
+    )
     assert re.search(r"python -m pytest tests/ci\b", text), (
         "pytest job must run `python -m pytest tests/ci`"
     )
@@ -201,6 +211,9 @@ def test_coverage_job_enforces_threshold() -> None:
 
     assert "pytest==9.1.1" in text, "coverage job must pin pytest==9.1.1"
     assert "pytest-cov==7.1.0" in text, "coverage job must install pytest-cov==7.1.0"
+    assert "pyyaml==6.0.3" in text, (
+        "coverage job must install the PyYAML pin so tests/ci can collect the wiring test"
+    )
     assert re.search(r"python -m pytest tests/ci\b", text), (
         "coverage job must run the tests/ci suite"
     )
@@ -482,6 +495,65 @@ def test_build_win_job_is_windows_event_tiered_and_not_skippable() -> None:
     assert "test \"${{ needs.build-win.result }}\" = \"success\"" in _steps_text(aggregator), (
         "the aggregator must turn a skipped/failed build-win into a red required check"
     )
+
+
+def test_build_linux_lane_builds_the_artifact_and_is_not_skippable() -> None:
+    """A05: the Linux lane must run A02's real chain, not just be listed in needs."""
+    jobs = _jobs()
+    assert "build-linux" in REQUIRED_JOBS, "A05: REQUIRED_JOBS must pin build-linux"
+    assert "build-linux" in jobs, "ci.yml must define a `build-linux` job"
+    job = jobs["build-linux"]
+
+    assert job.get("runs-on") == "ubuntu-latest", "build-linux must run on ubuntu-latest"
+    assert "if" not in job, (
+        "build-linux must not be job-level skipped; a skipped build must never read as pass"
+    )
+    assert "continue-on-error" not in job, "build-linux must not soft-fail"
+    assert "continue-on-error" not in _steps_text(job), (
+        "no build-linux step may soft-fail"
+    )
+
+    text = _steps_text(job)
+    # Listed in `needs` is not enough: the lane has to produce the artifact and
+    # let `accept --expect-pass` refuse a SKIP, otherwise it is a green no-op.
+    for marker in (
+        "prodline.stages.source",
+        "prodline.stages.build",
+        "--require-source-evidence",
+        "prodline.gates.artifact_check",
+        "--build-receipt artifacts/receipts/build-receipt.json",
+        "prodline.runners.accept --only source,build",
+        "--expect-pass",
+        "pyyaml==6.0.3",
+    ):
+        assert marker in text, f"build-linux lane is missing {marker!r}"
+    assert text.count("prodline.stages.build") == 1, (
+        "the build step must be the one dual-build invocation; no single-build shortcut"
+    )
+    assert "--no-verify" not in text, (
+        "build-linux must not disable artifact verification"
+    )
+
+    uploads = [
+        step
+        for step in job.get("steps") or []
+        if isinstance(step, dict) and str(step.get("uses") or "").startswith("actions/upload-artifact")
+    ]
+    assert uploads, "build-linux must upload its artifact bundle for later consumption"
+    assert "artifact.zip" in str(uploads[0].get("with")), (
+        "the Linux upload must include artifact.zip so B-side can consume it"
+    )
+
+    aggregator = jobs["all-checks-passed"]
+    needs = aggregator.get("needs")
+    needs = {needs} if isinstance(needs, str) else set(needs or [])
+    aggregator_text = _steps_text(aggregator)
+    for lane in ("build-linux", "build-win"):
+        assert lane in needs, f"all-checks-passed must depend on {lane}"
+        expected = 'test "${{ needs.' + lane + '.result }}" = "success"'
+        assert expected in aggregator_text, (
+            f"the aggregator must turn a skipped/failed {lane} into a red required check"
+        )
 
 
 def test_ci_has_no_continue_on_error_soft_fail() -> None:
