@@ -1,7 +1,7 @@
 """Mechanical release-line consistency checks for gugu (stdlib only, no network).
 
 Original three release-line assertions (GUGU_VERSION ↔ CHANGELOG ↔ README) are kept, plus
-WS-2 / T-02 additions: the machine-readable four-source manifest (``version-sources.json``),
+WS-2 / T-02 additions: the machine-readable version-source manifest (``version-sources.json``),
 the CLI product-identity label, and ``build_info.product_version`` sharing the single source.
 
 The product version is always read from ``GUGU_VERSION`` dynamically (never hard-coded) so
@@ -16,7 +16,7 @@ from pathlib import Path
 
 _SEMVER = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)")
 
-_EXPECTED_GROUPS = {"product", "upstream_kernel", "upstream_desktop", "workspace_unclassified"}
+_EXPECTED_GROUPS = {"product", "upstream_kernel", "upstream", "upstream_desktop", "workspace_unclassified"}
 
 
 def _declared_product_version(root: Path) -> str:
@@ -93,7 +93,7 @@ def _read_declared_value(root: Path, entry: dict) -> str | None:
     pointer = entry["pointer"]
     if pointer == "text":
         return path.read_text(encoding="utf-8").strip()
-    if path.suffix == ".json":
+    if path.suffix in {".json", ".lock"}:  # arch/upstream.lock is JSON with a .lock suffix
         node = json.loads(path.read_text(encoding="utf-8"))
     elif path.suffix == ".toml":
         import tomllib
@@ -108,9 +108,11 @@ def _read_declared_value(root: Path, entry: dict) -> str | None:
 
 
 def _write_minimal_tree(root: Path) -> None:
-    """A self-contained four-source tree so manifest tests never lean on the real checkout."""
+    """A self-contained manifest tree so manifest tests never lean on the real checkout."""
     (root / "GUGU_VERSION").write_text("9.9.9\n", encoding="utf-8")
     (root / "pyproject.toml").write_text('[project]\nname = "x"\nversion = "1.2.3"\n', encoding="utf-8")
+    (root / "arch").mkdir()
+    (root / "arch" / "upstream.lock").write_text('{"tag": "v9.9.9", "commit": "abc"}', encoding="utf-8")
     (root / "apps" / "desktop").mkdir(parents=True)
     (root / "apps" / "desktop" / "package.json").write_text('{"version": "4.5.6"}', encoding="utf-8")
     (root / "package.json").write_text('{"version": "1.0.0"}', encoding="utf-8")
@@ -119,6 +121,7 @@ def _write_minimal_tree(root: Path) -> None:
         "sources": [
             {"group": "product", "path": "GUGU_VERSION", "pointer": "text", "assert": "semver", "verified": True},
             {"group": "upstream_kernel", "path": "pyproject.toml", "pointer": "project.version", "assert": "1.2.3", "verified": True},
+            {"group": "upstream", "path": "arch/upstream.lock", "pointer": "tag", "assert": "v9.9.9", "verified": True},
             {"group": "upstream_desktop", "path": "apps/desktop/package.json", "pointer": "version", "assert": "4.5.6", "verified": True},
             {"group": "workspace_unclassified", "path": "package.json", "pointer": "version", "assert": "unverified", "verified": False},
         ],
@@ -166,11 +169,21 @@ def manifest_problems(root: Path = _ROOT) -> list[str]:
     return problems
 
 
-def test_version_sources_manifest_has_four_groups() -> None:
+def test_version_sources_manifest_declares_expected_groups() -> None:
     manifest = _load_manifest()
     groups = [entry["group"] for entry in manifest["sources"]]
     assert set(groups) == _EXPECTED_GROUPS
     assert len(groups) == len(set(groups)), f"duplicate group entries: {groups}"
+
+
+def test_manifest_asserts_the_upstream_lock_tag() -> None:
+    """D-103: pyproject's kernel version is the dynamic 0.0.0 placeholder, so the
+    real baseline (v0.22.5 / bf0203a7) is asserted from arch/upstream.lock."""
+    entry = next(e for e in _load_manifest()["sources"] if e["group"] == "upstream")
+    assert entry["path"] == "arch/upstream.lock"
+    assert entry["pointer"] == "tag"
+    assert entry["assert"] == "v0.22.5"
+    assert entry["verified"] is True
 
 
 def test_version_sources_manifest_is_consistent_with_repo() -> None:
@@ -192,6 +205,18 @@ def test_manifest_reports_wrong_declared_value(tmp_path: Path) -> None:
     (tmp_path / "version-sources.json").write_text(json.dumps(manifest), encoding="utf-8")
     problems = manifest_problems(tmp_path)
     assert any("pyproject.toml" in p and "9.9.9" in p for p in problems), problems
+
+
+def test_manifest_reports_wrong_upstream_lock_tag(tmp_path: Path) -> None:
+    """The lock tag is asserted literally: a different baseline must be reported."""
+    _write_minimal_tree(tmp_path)
+    manifest = json.loads((tmp_path / "version-sources.json").read_text(encoding="utf-8"))
+    for entry in manifest["sources"]:
+        if entry["group"] == "upstream":
+            entry["assert"] = "v0.0.1"
+    (tmp_path / "version-sources.json").write_text(json.dumps(manifest), encoding="utf-8")
+    problems = manifest_problems(tmp_path)
+    assert any("arch/upstream.lock" in p and "v0.0.1" in p for p in problems), problems
 
 
 def test_manifest_accepts_self_consistent_tree(tmp_path: Path) -> None:

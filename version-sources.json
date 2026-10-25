@@ -20,6 +20,14 @@
       "note": "upstream Hermes Agent kernel; not rewritten by gugu releases (D-004)"
     },
     {
+      "group": "upstream",
+      "path": "arch/upstream.lock",
+      "pointer": "tag",
+      "assert": "v0.22.5",
+      "verified": true,
+      "note": "real upstream baseline (D-103): the lockfile records tag=v0.22.5 / commit=bf0203a7, which the kernel's 0.21.5 line cannot express"
+    },
+    {
       "group": "upstream_desktop",
       "path": "apps/desktop/package.json",
       "pointer": "version",
