@@ -205,6 +205,14 @@ def test_receipt_files_record_their_own_sha256(tmp_path: Path) -> None:
     assert result.records[0].sha256 == receipt_check.sha256_file(path)
 
 
+def test_receipt_files_record_their_commit(tmp_path: Path) -> None:
+    path = tmp_path / "build-receipt.json"
+    path.write_text(json.dumps(_receipt("build")), encoding="utf-8")
+    result = receipt_check.check_paths([path])
+    assert result.records[0].commit == HEX40
+    assert result.to_dict()["receipts"][0]["commit"] == HEX40
+
+
 def test_directory_scan_ignores_non_receipt_json(tmp_path: Path) -> None:
     receipts = tmp_path / "artifacts" / "receipts"
     receipts.mkdir(parents=True)

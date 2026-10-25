@@ -72,6 +72,7 @@ class ReceiptRecord:
     stage: str | None = None
     status: str | None = None
     provenance: str | None = None
+    commit: str | None = None
     problems: list[str] = field(default_factory=list)
 
     @property
@@ -86,6 +87,7 @@ class ReceiptRecord:
             "stage": self.stage,
             "status": self.status,
             "provenance": self.provenance,
+            "commit": self.commit,
             "problems": list(self.problems),
         }
 
@@ -445,6 +447,7 @@ def _load_one(
     record.stage = data.get("stage")
     record.status = data.get("status")
     record.provenance = data.get("provenance")
+    record.commit = data.get("commit") if isinstance(data.get("commit"), str) else None
     record.problems.extend(
         check_receipt(
             data,

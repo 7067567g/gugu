@@ -8,6 +8,18 @@ Contract (``pipeline.yaml#acceptance.rules``)
     records *evidence* rather than a seventh receipt (``pipeline.yaml`` keeps the
     fixed six).  Source evidence is re-hashed but not recomputed: that is the
     explicit ``aggregate_only`` exception documented in ``ACCEPTANCE-GATE.md``.
+``commit_binding``
+    The report commit (``--commit`` or ``git HEAD``) is passed to
+    ``receipt_check.check_paths(..., commit=...)``, so every receipt must carry
+    that exact commit.  A single wrong-commit receipt fails its stage; mixed
+    commits fail the run.  ``report.receipts[]`` records each receipt's commit
+    next to its path/sha256 so the mismatch is auditable.
+``verify_files``
+    The sha256 chain is always enabled: every file a receipt points at
+    (``evidence[]`` / ``artifacts[]`` / ``artifact{}`` / release ``from/to``)
+    is re-hashed.  This is not a recomputation of the underlying build -- it is
+    the same "is this still the file the receipt recorded" check as
+    ``receipt_check --verify-files``, now on the acceptance path by default.
 ``skip_is_not_pass``
     A stage with no receipt is ``SKIP``, and the report verdict is
     ``incomplete`` -- never ``pass``.
@@ -203,6 +215,7 @@ def aggregate_receipt_stage(stage_id: str, entries: list[dict[str, Any]]) -> dic
                 "schema": entry.get("schema"),
                 "status": entry.get("status"),
                 "provenance": entry.get("provenance"),
+                "commit": entry.get("commit"),
             }
             for entry in entries
         ],
@@ -250,8 +263,15 @@ def aggregate_receipt_stage(stage_id: str, entries: list[dict[str, Any]]) -> dic
 def collect_receipts(
     root: Path,
     receipts_dir: Path,
+    *,
+    commit: str | None = None,
+    verify_files: bool = True,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """Load and validate every receipt document under ``receipts_dir``.
+
+    ``commit`` is the report commit: every receipt must match it.  ``verify_files``
+    defaults to ``True`` because acceptance must not aggregate a receipt whose
+    recorded sha256 no longer matches the file it points at.
 
     Returns ``(entries, problems)``.  Entries carry their stage (from the
     registered schema, not from the document's possibly-wrong ``stage`` field).
@@ -260,7 +280,13 @@ def collect_receipts(
         return [], []
 
     # An empty directory is a SKIP for the stage, not an accept-level failure.
-    result = receipt_check.check_paths(receipts_dir=receipts_dir, root=root, allow_empty=True)
+    result = receipt_check.check_paths(
+        receipts_dir=receipts_dir,
+        root=root,
+        commit=commit,
+        verify_files=verify_files,
+        allow_empty=True,
+    )
     registry = receipt_check.registered_schemas()
     entries: list[dict[str, Any]] = []
     problems: list[str] = []
@@ -278,6 +304,7 @@ def collect_receipts(
                 "stage": stage,
                 "status": record.status,
                 "provenance": record.provenance,
+                "commit": record.commit,
                 "problems": list(record.problems),
             }
         )
@@ -333,7 +360,12 @@ def build_report(
 
     receipt_entries: list[dict[str, Any]] = []
     if any(stage != "source" for stage in only):
-        receipt_entries, global_problems = collect_receipts(root_path, receipts_path)
+        receipt_entries, global_problems = collect_receipts(
+            root_path,
+            receipts_path,
+            commit=commit_sha,
+            verify_files=True,
+        )
 
     for stage_id in only:
         if stage_id == "source":
