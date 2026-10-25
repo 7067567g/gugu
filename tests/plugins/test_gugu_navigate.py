@@ -177,6 +177,29 @@ def _write_decoy_then_real(route: str, surface: str) -> None:
     time.sleep(0.3)
 
 
+def test_navigate_reports_timeout_when_the_renderer_never_acks(home: Path, monkeypatch) -> None:
+    monkeypatch.setenv("GUGU_NAV_TIMEOUT_MS", "150")
+    _write_runtime_state(
+        {
+            "surface": "work",
+            "route": "/",
+            "screen": "work",
+            "nav_request_id": None,
+            "selection": [],
+            "updated_at": time.time(),
+        }
+    )
+
+    result = executor.execute("navigate", {"screen": "design"})
+
+    assert result["ok"] is True
+    data = result["data"]
+    assert data["navigated"] is False
+    assert data["reason"] == "timeout"
+    assert data["route"] == "/"
+    assert store.read_navigation() is None
+
+
 def test_navigate_rejects_a_screen_outside_the_contract(home: Path) -> None:
     result = executor.execute("navigate", {"screen": "code"})
     assert result["ok"] is False
