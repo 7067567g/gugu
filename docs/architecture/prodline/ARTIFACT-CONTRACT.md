@@ -122,6 +122,46 @@ unzip -q artifact.zip -d "$DEST"
 5. 两个 commit 各产一次 artifact（B05 的 from/to），并各自带 build-receipt；
 6. 把 `artifact.zip`/`artifact-manifest.json`/`build-receipt.json` 放同目录交付。
 
+### 6.1 A02 实现口径（Linux，已落地 2026-10-25）
+
+实现：`prodline/stages/build.py`（`provenance=real`，无 fixture/mock 开关）。
+
+```bash
+# 1) 同一 commit 的 source evidence（accept 的 source 段要它）
+.venv/bin/python -m prodline.stages.source --root . --out artifacts/source-evidence.json --quiet
+
+# 2) 构建（默认双构建；输出目录即交付目录）
+.venv/bin/python -m prodline.stages.build --root . --outdir artifacts/receipts
+
+# 3) 全验（默认 verify_files + verify_git_tree + repo commit->tree + receipt 哈希）
+.venv/bin/python -m prodline.gates.artifact_check \
+  --zip artifacts/receipts/artifact.zip \
+  --manifest artifacts/receipts/artifact-manifest.json \
+  --build-receipt artifacts/receipts/build-receipt.json --repo .
+
+# 4) 验收（source PASS + build PASS，provenance=real）
+.venv/bin/python -m prodline.runners.accept --only source,build --expect-pass \
+  --out artifacts/receipts/acceptance-report.json
+```
+
+| 决定 | 实现 | 原因 |
+| --- | --- | --- |
+| 交付目录 | `artifacts/receipts/` | 契约要求 zip/manifest/receipt 同目录；`accept` 默认递归扫 `artifacts/receipts/**/*.json`，一个目录同时满足两者。该目录被 `.gitignore`（`/artifacts/`）忽略，不污染工作树。 |
+| `FILES.sha256` 的哈希对象 | **zip 成员字节**（`git archive` 之后） | checker 用 `archive.read(path)` 复算；`*.ps1` 在 archive 里是 CRLF、blob 是 LF，用工作树字节会全红。 |
+| zip 重建 | 成员按 path 排序、`date_time=(1980,1,1,0,0,0)`、`create_system=3`、`100644<<16`、deflate 9 | 同一 commit 两次构建（含跨进程）zip sha256 相同；成员内容字节原样复制，FILES 链不变。 |
+| `dirty` | `git status --porcelain --untracked-files=no` | manifest schema `dirty` 是 `const false`；未跟踪的交付物（`artifacts/**`）不允许把构建判脏，但**一个 tracked 改动即拒绝构建**。 |
+| 链方向 | receipt → zip；manifest → receipt | 若 receipt 再写 `manifest_sha256`，`H(manifest)` 与 `H(receipt)` 互相依赖，无解。故 receipt 的 `artifacts[]` 只有 zip（不用可选 `manifest_sha256`），manifest 的 `build_receipt_sha256` 指向最终 receipt。manifest 自身由 checker 的 zip/commit/版本/git_tree 全验兜底。 |
+| 可复现档位 | `mode=byte-identical`、`verdict=equal`，`builds[]` 两轮 | 完整跑两遍 `git archive`→FILES→zip；只要 sha/bytes/files_sha 有一项不同即 `status=fail`、CLI exit 1。**不存在**“单构建也 PASS”的开关。 |
+| 版本字段 | 全部从 zip 内文件读 | `GUGU_VERSION` / `pyproject.toml` / `apps/desktop/package.json` / `arch/upstream.lock`，与 checker 同源。 |
+| lockfiles | 从 zip 成员复算 | 与 checker 的 `lockfiles` 检查逐字节一致；source evidence 的 canonical 哈希在 LF 锁文件上相同。 |
+| `artifact-check.json` | 独立证据，不是 receipt、不进 receipt 链 | 它的内容包含 manifest sha/receipt sha；若写进 receipt 会重新引入循环。 |
+| `require_source_evidence` | 默认关闭；CI 可显式打开 | 默认缺/陈旧 source evidence 时不伪造 `evidence[]`，只在 receipt 里记 `omitted` 原因；显式打开则硬失败。 |
+| 跨机可复现 | **不声明** | 只声明同 runner/zlib 内 byte-identical；跨机差异留给 A03/A04 的 runner 矩阵。 |
+
+A02 是“当前 commit 一次真实交付”。契约 §6.5 的“两个 commit 各产一次”仍是 B05
+（from/to upgrade）的义务：对每个 commit 重复上面的第 1–4 步，各自带自己的
+build-receipt；不要把两次同 commit 的双构建误记成两个 commit 的产物。
+
 ## 7. 负样例矩阵
 
 `prodline/tests/fixtures/artifact/cases.json` 当前 21 例（1 正 + 20 负），每次测试
@@ -147,15 +187,17 @@ unzip -q artifact.zip -d "$DEST"
 | `LONG-LINE-PLAN-v2.md` §4.2/M1/M3 | 21 字段、两份并列、git_tree/provenance | **采用** |
 | `ROUND-SPEC.md` “见 plan-A §5.3” | 旧指向 | pipeline owner 修文；实现以本契约为准 |
 
-## 9. 本轮未完成（不写成 PASS）
+## 9. 未完成项（按轮更新；不写成 PASS）
 
 | 项 | 状态 | 去向 |
 | --- | --- | --- |
-| 真实 `artifact.zip` + manifest + build-receipt | **未产出**（A01 只冻结契约） | A02 |
-| `accept --only source,build` 的 build 段 | **SKIP/incomplete** | A02 |
-| P1 G-1（accept 不比较 receipt.commit）、G-2（accept 不验链） | **未修**（不在 A01 scope.write） | P1.5-fix / A02 前显式 `receipt_check --verify-files --commit` |
-| `pipeline.yaml#status` 仍 `p1-draft` | **未翻** | pipeline owner |
+| 真实 `artifact.zip` + manifest + build-receipt（Linux，当前 commit） | **已产出**（A02；`artifact_check` exit 0） | 证据见 `runs/gugu-pl-a02-linux-build/reports/` |
+| `accept --only source,build` 的 build 段 | **PASS**（A02；source PASS + build PASS，均 provenance=real） | 已闭环 |
+| P1 G-1（accept 不比较 receipt.commit）、G-2（accept 不验链） | **已修**（P1b；accept 默认校验 commit + 链） | 已闭环 |
+| `pipeline.yaml#status` 仍 `p1-draft` | **未翻**（G-3） | pipeline owner |
 | Windows artifact / NSIS / build-win job | **未做** | A03/A04 |
+| 两个 commit 的 artifact（B05 from/to） | **未做**（A02 只产当前 commit） | B05 |
+| 跨机 byte-identical（不同 runner/zlib） | **未验证**（不声明） | A03/A04 runner 矩阵 |
 | A06 payload 分区 | 未做 | A06 |
 
 ## 10. 如何复核本冻结
