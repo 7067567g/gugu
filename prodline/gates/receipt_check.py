@@ -472,6 +472,7 @@ def check_paths(
     commit: str | None = None,
     verify_files: bool = False,
     allow_mixed_commits: bool = False,
+    allow_empty: bool = False,
     pipeline: dict[str, Any] | None = None,
 ) -> CheckResult:
     """Check explicit receipt files and/or every receipt under ``receipts_dir``."""
@@ -527,7 +528,7 @@ def check_paths(
     if result.commit is None and len(commits) == 1:
         result.commit = next(iter(commits))
 
-    if not result.records and not result.problems:
+    if not result.records and not result.problems and not allow_empty:
         result.problems.append("no receipt documents found")
     return result
 

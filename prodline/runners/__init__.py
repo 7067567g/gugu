@@ -1,5 +1,10 @@
 """Runners (P1.3+).
 
-P1.1 reserves the package only.  ``receipt_check.py`` and ``accept.py`` land in
-``gugu-pl-p1-gate``; the stage runner wiring is not part of the P1.1 skeleton.
+``accept.py`` is the P1.3 aggregator: it turns receipt files plus the source
+evidence into an ``acceptance-report/v1`` document and enforces
+``provenance == real`` before a stage can PASS.  ``receipt_check`` lives under
+``prodline/gates`` because it is a gate, not an aggregator.
+
+Future runners (soak, etc.) land in the A/B areas; importing this package must
+not drag in product code.
 """
