@@ -23,6 +23,7 @@ import { runAiEntry } from './agent-entry'
 import { buildAgentState } from './agent-state'
 import { bindApi, publishAgentState } from './api'
 import { $designView, bindController } from './controller'
+import { guidanceLayer } from './guidance'
 import { t } from './i18n'
 import { DesignPage } from './page'
 
@@ -94,6 +95,8 @@ const plugin: HermesPlugin = {
       if (publishTimer !== null) {
         clearTimeout(publishTimer)
       }
+      // 插件被禁用/卸载时，引导层不能留在 body 上。
+      guidanceLayer.dispose()
     })
 
     ctx.registerMany([

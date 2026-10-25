@@ -518,6 +518,49 @@ async def put_agent_state(body: AgentStateBody):
     return {"ok": True, "state": state}
 
 
+# ---- M2 guidance mailbox ---------------------------------------------------
+# 后端还没有 renderer 方向的 host 通道（M1 剩余），所以 agent 侧把「当前唯一
+# 一步引导」原子写到 designs/guidance.json，/design surface 轮询消费；渲染端
+# 任何本地中断都会 DELETE 掉它，避免 agent 下一次读到陈旧 overlay。
+# 文件名与 plugins/gugu_capabilities/store.py 保持一致。
+
+def _guidance_path() -> Path:
+    return _designs_root() / "guidance.json"
+
+
+@router.get("/guidance")
+async def get_guidance():
+    path = _guidance_path()
+    if not path.is_file():
+        return {"guidance": None}
+    try:
+        guidance = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"guidance": None}
+    return {"guidance": guidance if isinstance(guidance, dict) else None}
+
+
+@router.delete("/guidance")
+async def dismiss_guidance(guidance_id: Optional[str] = Query(default=None)):
+    """Idempotent local dismiss. With ``guidance_id`` only delete that step, so a
+    late DELETE from a previous step cannot erase the agent's new guidance."""
+    path = _guidance_path()
+    if not path.is_file():
+        return {"cleared": False}
+    if guidance_id:
+        try:
+            current = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {"cleared": False}
+        if not isinstance(current, dict) or str(current.get("guidance_id") or "") != guidance_id:
+            return {"cleared": False}
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return {"cleared": False}
+    return {"cleared": True}
+
+
 @router.get("/projects/{pid}")
 async def get_project(pid: str):
     d = _project_dir(pid)

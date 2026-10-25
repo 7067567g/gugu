@@ -6,7 +6,7 @@ covers exactly what registry entries use today; unsupported keywords are
 ignored on purpose so a future richer schema does not silently fail open.
 
 Supported keywords: type, enum, properties, required, additionalProperties
-(false only), items, minItems, minLength, pattern, minimum, maximum.
+(false only), items, minItems, minLength, maxLength, pattern, minimum, maximum.
 """
 
 from __future__ import annotations
@@ -33,6 +33,9 @@ def validate(instance: Any, schema: Mapping[str, Any], *, path: str = "$") -> li
         min_length = schema.get("minLength")
         if isinstance(min_length, int) and len(instance) < min_length:
             errors.append(f"{path}: string shorter than {min_length}")
+        max_length = schema.get("maxLength")
+        if isinstance(max_length, int) and len(instance) > max_length:
+            errors.append(f"{path}: string longer than {max_length}")
         pattern = schema.get("pattern")
         if isinstance(pattern, str) and re.search(pattern, instance) is None:
             errors.append(f"{path}: string does not match {pattern!r}")

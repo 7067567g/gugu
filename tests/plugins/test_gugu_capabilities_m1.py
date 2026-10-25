@@ -450,7 +450,7 @@ def test_export_empty_canvas_is_a_structured_error(project):
     assert result["error"]["code"] == "export_failed"
 
 
-def test_registry_now_has_m1_capabilities_ready():
+def test_registry_status_matches_delivered_milestones():
     assert len(registry.CAPABILITIES) == 11
     assert registry.validate_registry() == []
     status = {entry["id"]: entry["status"] for entry in registry.list_capabilities()}
@@ -458,5 +458,7 @@ def test_registry_now_has_m1_capabilities_ready():
     assert status["generate_image"] == "ready"
     assert status["export_canvas"] == "ready"
     assert status["navigate"] == "planned"
-    assert status["highlight"] == "planned"
-    assert status["clear_guidance"] == "planned"
+    # M2 delivered the guidance pair; overlay + lifecycle tests live in
+    # tests/plugins/test_gugu_guidance.py and the desktop vitest suite.
+    assert status["highlight"] == "ready"
+    assert status["clear_guidance"] == "ready"

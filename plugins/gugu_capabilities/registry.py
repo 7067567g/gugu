@@ -45,7 +45,7 @@ ANCHORS: Dict[str, Dict[str, str]] = {
     "design.composer": {"surface": "design", "status": "present", "description": "现有生成输入框（全局 AI 入口复用）"},
     "design.composer.kind": {"surface": "design", "status": "present", "description": "图像/视频切换"},
     "design.composer.send": {"surface": "design", "status": "present", "description": "提交生成按钮"},
-    "guidance.overlay": {"surface": "guidance", "status": "planned", "description": "M2 引导层 overlay 根"},
+    "guidance.overlay": {"surface": "guidance", "status": "present", "description": "引导层 overlay 根（active 时挂到 body；不可作为高亮目标）"},
     "canvas.export": {"surface": "canvas", "status": "present", "description": "画布导出按钮（M1）"},
 }
 
@@ -186,8 +186,9 @@ CAPABILITIES: Tuple[Dict[str, Any], ...] = (
             "properties": {
                 "schema_version": {"type": "string"},
                 "capabilities": {"type": "array", "items": {"type": _OBJECT}},
+                "anchors": {"type": "array", "items": {"type": _OBJECT}},
             },
-            "required": ["schema_version", "capabilities"],
+            "required": ["schema_version", "capabilities", "anchors"],
         },
         side_effects=[],
         requires_approval=False,
@@ -422,22 +423,28 @@ CAPABILITIES: Tuple[Dict[str, Any], ...] = (
                 "target_anchor": {"type": "string", "minLength": 1},
                 "text": {"type": "string", "maxLength": 280},
                 "style": {"type": "string", "enum": ["highlight", "box", "label"]},
+                "timeout_ms": {"type": "integer", "minimum": 0, "maximum": 60000},
             },
             "required": ["target_anchor"],
             "additionalProperties": False,
         },
         output_schema={
             "type": _OBJECT,
-            "properties": {"guidance_id": {"type": "string"}},
+            "properties": {
+                "guidance_id": {"type": "string"},
+                "target_anchor": {"type": "string"},
+                "style": {"type": "string"},
+                "timeout_ms": {"type": "integer"},
+            },
             "required": ["guidance_id"],
         },
-        side_effects=["渲染引导层", "注册中断监听"],
+        side_effects=["渲染引导层", "注册中断监听", "写入 guidance 邮箱（designs/guidance.json）"],
         requires_approval=False,
         ui_anchors=["guidance.overlay"],
         examples=[{"description": "高亮画布区", "arguments": {"target_anchor": "design.canvas", "text": "产出会落在这里"}}],
-        status="planned",
+        status="ready",
         milestone="M2",
-        notes="M2 与零残留生命周期一起实现；本轮不渲染任何 overlay。",
+        notes="M2：渲染端消费 guidance 邮箱并保证零残留；只接受 present 且非 guidance 自身的锚点。",
     ),
     _cap(
         cid="clear_guidance",
@@ -452,8 +459,9 @@ CAPABILITIES: Tuple[Dict[str, Any], ...] = (
         requires_approval=False,
         ui_anchors=["guidance.overlay"],
         examples=[{"description": "清空引导", "arguments": {}}],
-        status="planned",
+        status="ready",
         milestone="M2",
+        notes="M2：删除 guidance 邮箱；渲染端下一次轮询即按 Agent 取消收尾，重复调用返回 cleared=false。",
     ),
     _cap(
         cid="undo",
@@ -498,6 +506,28 @@ def list_capabilities() -> list[Dict[str, Any]]:
 
 def anchor_registry() -> Dict[str, Dict[str, str]]:
     return copy.deepcopy(ANCHORS)
+
+
+def list_anchors() -> list[Dict[str, Any]]:
+    """Agent-facing anchor inventory: what it can point at, and what it can't.
+
+    ``targetable`` is the guidance contract, not a UI detail: an anchor is
+    targetable when its DOM exists today and it is not the guidance overlay
+    itself (a guidance that frames its own overlay would never terminate).
+    """
+    anchors: list[Dict[str, Any]] = []
+    for anchor_id in sorted(ANCHORS):
+        entry = ANCHORS[anchor_id]
+        anchors.append(
+            {
+                "id": anchor_id,
+                "surface": entry["surface"],
+                "status": entry["status"],
+                "description": entry["description"],
+                "targetable": entry["status"] == "present" and entry["surface"] != "guidance",
+            }
+        )
+    return anchors
 
 
 # ---------------------------------------------------------------------------

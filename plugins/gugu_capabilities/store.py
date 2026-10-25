@@ -83,6 +83,55 @@ def read_runtime_state() -> Optional[Dict[str, Any]]:
     return data if isinstance(data, dict) else None
 
 
+# ---------------------------------------------------------------------------
+# Guidance mailbox (M2)
+#
+# The backend has no renderer-directed host channel yet, so the agent writes
+# the ONE active guidance step to ``designs/guidance.json`` and the /design
+# surface polls it. Last writer wins; the renderer deletes it on any local
+# interrupt so the agent's next read never sees a stale overlay. Keep the file
+# name in sync with plugins/gugu-design/dashboard/plugin_api.py.
+# ---------------------------------------------------------------------------
+
+
+def guidance_path() -> Path:
+    return designs_root() / "guidance.json"
+
+
+def read_guidance() -> Optional[Dict[str, Any]]:
+    path = guidance_path()
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def write_guidance(payload: Mapping[str, Any]) -> None:
+    _atomic_write_json(guidance_path(), dict(payload))
+
+
+def clear_guidance(guidance_id: Optional[str] = None) -> bool:
+    """Delete the mailbox; with ``guidance_id`` only if it still points there.
+
+    Returns whether a file was actually removed, so ``clear_guidance`` can be
+    safely retried (second call reports ``cleared=false``).
+    """
+    path = guidance_path()
+    current = read_guidance()
+    if current is None:
+        return False
+    if guidance_id and str(current.get("guidance_id") or "") != str(guidance_id):
+        return False
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return False
+    return True
+
+
 def project_dir(project_id: str) -> Path:
     if not isinstance(project_id, str) or _PROJECT_ID_RE.match(project_id) is None:
         raise StoreError("invalid_project_id", f"非法工程 id: {project_id!r}")

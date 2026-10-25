@@ -194,3 +194,31 @@ export function downloadCanvasExport(result: CanvasExport): void {
   anchor.click()
   URL.revokeObjectURL(url)
 }
+
+export interface GuidanceCommand {
+  created_at?: number
+  guidance_id: string
+  style?: 'box' | 'highlight' | 'label'
+  target_anchor: string
+  text?: string
+  timeout_ms?: number
+}
+
+/** M2: read the one active guidance step (mailbox; polling stands in for the
+ *  renderer-directed host channel that M1 deferred). */
+export async function fetchGuidance(): Promise<GuidanceCommand | null> {
+  const result = await need<{ guidance: GuidanceCommand | null }>('/guidance', { timeoutMs: 4000 })
+
+  return result.guidance ?? null
+}
+
+/** Best-effort mailbox cleanup after a local interrupt. Scoped to one id so a
+ *  late dismiss cannot delete the agent's next step. */
+export async function dismissGuidance(guidanceId: string): Promise<void> {
+  try {
+    await need(`/guidance?guidance_id=${encodeURIComponent(guidanceId)}`, { method: 'DELETE', timeoutMs: 4000 })
+  } catch {
+    // Backend not ready: a stale step will be re-rendered on the next poll and
+    // re-dismissed; local DOM is already clean, so this is not fatal.
+  }
+}

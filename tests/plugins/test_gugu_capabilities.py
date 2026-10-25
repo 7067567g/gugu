@@ -402,14 +402,16 @@ def test_generate_capability_requires_approval_before_any_work(project, monkeypa
 
 
 def test_planned_capabilities_never_pretend_to_work(project):
-    for capability, arguments in (
-        ("navigate", {"screen": "design"}),
-        ("highlight", {"target_anchor": "design.canvas"}),
-        ("clear_guidance", {}),
-    ):
-        result = executor.execute(capability, arguments, approved=True)
-        assert result["ok"] is False, capability
-        assert result["error"]["code"] == "not_implemented", capability
+    # M2 moved highlight/clear_guidance to ready; navigate is the only surface
+    # still deliberately deferred. Assert the exact planned set so a regression
+    # (or a capability silently flipping to ready without a handler) is visible.
+    planned = [capability["id"] for capability in registry.list_capabilities() if capability["status"] == "planned"]
+    assert planned == ["navigate"]
+
+    result = executor.execute("navigate", {"screen": "design"}, approved=True)
+    assert result["ok"] is False
+    assert result["error"]["code"] == "not_implemented"
+    assert result["error"]["details"]["milestone"] == "M0"
 
 
 def test_invalid_arguments_and_unknown_capability_are_structured(project):

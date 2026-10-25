@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import logging
 import re
+import time
+import uuid
 from typing import Any, Callable, Dict, Mapping, Optional
 
 from . import assets as _assets, diagram, export, images, registry, schema, store
@@ -105,6 +107,7 @@ def _list_capabilities(_args: Mapping[str, Any]) -> Dict[str, Any]:
     return {
         "schema_version": registry.SCHEMA_VERSION,
         "capabilities": registry.list_capabilities(),
+        "anchors": registry.list_anchors(),
     }
 
 
@@ -339,6 +342,45 @@ def _undo(args: Mapping[str, Any]) -> Dict[str, Any]:
     return store.undo(str(args["project_id"]))
 
 
+def _highlight(args: Mapping[str, Any]) -> Dict[str, Any]:
+    anchor_id = str(args["target_anchor"])
+    entry = registry.ANCHORS.get(anchor_id)
+    if entry is None:
+        raise store.StoreError(
+            "unknown_anchor",
+            f"未登记的锚点: {anchor_id!r}",
+            {"available": [anchor["id"] for anchor in registry.list_anchors() if anchor["targetable"]]},
+        )
+    if entry["surface"] == "guidance":
+        raise store.StoreError("invalid_anchor", "引导层不能指向自身")
+    if entry["status"] != "present":
+        raise store.StoreError(
+            "anchor_not_available",
+            f"锚点当前不在界面上: {anchor_id}",
+            {"status": entry["status"]},
+        )
+
+    payload = {
+        "guidance_id": f"gd-{uuid.uuid4().hex[:12]}",
+        "target_anchor": anchor_id,
+        "text": str(args.get("text") or ""),
+        "style": str(args.get("style") or "highlight"),
+        "timeout_ms": int(args.get("timeout_ms") or 0),
+        "created_at": time.time(),
+    }
+    store.write_guidance(payload)
+    return {
+        "guidance_id": payload["guidance_id"],
+        "target_anchor": payload["target_anchor"],
+        "style": payload["style"],
+        "timeout_ms": payload["timeout_ms"],
+    }
+
+
+def _clear_guidance(_args: Mapping[str, Any]) -> Dict[str, Any]:
+    return {"cleared": store.clear_guidance()}
+
+
 _HANDLERS: Dict[str, Callable[[Mapping[str, Any]], Dict[str, Any]]] = {
     "list_capabilities": _list_capabilities,
     "read_state": _read_state,
@@ -348,4 +390,6 @@ _HANDLERS: Dict[str, Callable[[Mapping[str, Any]], Dict[str, Any]]] = {
     "update_artifact": _update_artifact,
     "export_canvas": _export_canvas,
     "undo": _undo,
+    "highlight": _highlight,
+    "clear_guidance": _clear_guidance,
 }
