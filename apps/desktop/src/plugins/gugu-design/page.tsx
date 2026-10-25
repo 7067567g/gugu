@@ -3,10 +3,8 @@ import { Button, Codicon, Input, cn, host, useValue } from '@hermes/plugin-sdk'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import {
-  dismissGuidance,
   downloadCanvasExport,
   exportCanvas,
-  fetchGuidance,
   ingestCompletedJobs,
   uploadAsset,
   useCreateProject,
@@ -19,7 +17,7 @@ import {
 } from './api'
 import { DesignCanvas, type PendingCommentAnchor } from './canvas'
 import { $designView, designController } from './controller'
-import { guidanceLayer, planGuidanceTick } from './guidance'
+import { guidanceLayer } from './guidance'
 import { t } from './i18n'
 import type { CanvasTool } from './types'
 
@@ -267,84 +265,8 @@ function Workspace({ onBack }: { onBack: () => void }) {
     return () => ro.disconnect()
   }, [view.status])
 
-  // M2 引导层：后端没有 renderer 方向的 host 通道（M1 剩余），这里用约 1.2s
-  // 轮询消费 designs/guidance.json；本地中断由 manager 负责，退出时回报清空邮箱。
-  useEffect(() => {
-    let stopped = false
-    let inFlight = false
-    // 本地已经收尾的 step id：DELETE 还没有落地时，轮询不能把它又画回来。
-    const dismissed = new Set<string>()
-    const unsubscribe = guidanceLayer.subscribe(state => {
-      if (state.status === 'idle' && state.last_end) {
-        dismissed.add(state.last_end.guidance_id)
-        if (dismissed.size > 32) {
-          dismissed.clear()
-        }
-        void dismissGuidance(state.last_end.guidance_id)
-      }
-    })
-
-    const tick = async () => {
-      if (stopped || inFlight) {
-        return
-      }
-      inFlight = true
-      try {
-        const command = await fetchGuidance()
-        if (stopped) {
-          return
-        }
-        const action = planGuidanceTick({
-          active_id: guidanceLayer.activeId(),
-          command,
-          dismissed
-        })
-        if (action === 'ignore') {
-          return
-        }
-        if (action === 'clear') {
-          // Agent 用 clear_guidance 删了邮箱：本地也立刻收尾。
-          guidanceLayer.clear()
-          return
-        }
-        if (!command) {
-          return
-        }
-        if (guidanceLayer.activeId()) {
-          // 邮箱换了一步：旧 step 按 Agent 替换收尾，绝不叠层。
-          guidanceLayer.clear()
-        }
-        try {
-          guidanceLayer.show({
-            id: command.guidance_id,
-            style: command.style,
-            target_anchor: command.target_anchor,
-            text: command.text ?? '',
-            timeoutMs: command.timeout_ms ?? 0
-          })
-        } catch {
-          // 目标不在当前 DOM（例如面板被折叠）：不留假状态，直接清掉这一步。
-          dismissed.add(command.guidance_id)
-          void dismissGuidance(command.guidance_id)
-        }
-      } catch {
-        // 后端未就绪 / 远端路由没有插件 API：下次轮询再试，不打扰画布。
-      } finally {
-        inFlight = false
-      }
-    }
-
-    const poll = window.setInterval(() => void tick(), 1200)
-    void tick()
-
-    return () => {
-      stopped = true
-      window.clearInterval(poll)
-      // 先 dispose（会发 idle，订阅者删邮箱），再退订阅。
-      guidanceLayer.dispose()
-      unsubscribe()
-    }
-  }, [])
+  // 引导消费循环在 app 级 `global-runtime.ts`（任意界面可用）；这里只保留
+  // 模式切换这类页面内的硬中断源，不再 dispose 全局层。
 
   const upload = useCallback(async (files: FileList | null) => {
     if (!files) {

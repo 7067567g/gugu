@@ -1368,6 +1368,7 @@ export function ChatBar({
             data-hud-grabbing={hudGrabbing ? '' : undefined}
             data-popped-out={poppedOut ? '' : undefined}
             data-slot="composer-root"
+            data-agent-id="work.composer"
             data-status-stack={statusStackVisible && !statusDrawerCollapsed ? '' : undefined}
             data-thread-scrolled-up={scrolledUp ? '' : undefined}
             data-tip-region=""

@@ -10,6 +10,8 @@ describe('surfaceForRoute', () => {
     ['/design/settings', 'design'],
     ['/settings', 'settings'],
     ['/settings?tab=providers', 'settings'],
+    ['/artifacts', 'artifacts'],
+    ['/artifacts?kind=image', 'artifacts'],
     ['/kanban', 'other']
   ] as const)('maps %s to %s', (route, expected) => {
     expect(surfaceForRoute(route)).toBe(expected)
@@ -22,8 +24,10 @@ describe('buildAgentState', () => {
     const state = buildAgentState({ hash: '#/design?pid=proj-1', now: 1234, pid: 'proj-1', selection })
 
     expect(state).toEqual({
+      nav_request_id: null,
       project_id: 'proj-1',
       route: '/design',
+      screen: 'design',
       selection: ['agent-one', 'agent-two'],
       surface: 'design',
       updated_at: 1234
@@ -38,5 +42,20 @@ describe('buildAgentState', () => {
     expect(state.project_id).toBeNull()
     expect(state.surface).toBe('work')
     expect(state.route).toBe('/')
+  })
+
+  it('carries the navigate request id and the artifacts screen', () => {
+    const state = buildAgentState({
+      hash: '#/artifacts',
+      navRequestId: 'nav-abc123',
+      now: 9,
+      pid: null,
+      selection: []
+    })
+
+    expect(state.route).toBe('/artifacts')
+    expect(state.screen).toBe('artifacts')
+    expect(state.surface).toBe('artifacts')
+    expect(state.nav_request_id).toBe('nav-abc123')
   })
 })

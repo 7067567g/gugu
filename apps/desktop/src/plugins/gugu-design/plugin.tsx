@@ -20,10 +20,9 @@ import {
 } from '@hermes/plugin-sdk'
 
 import { runAiEntry } from './agent-entry'
-import { buildAgentState } from './agent-state'
-import { bindApi, publishAgentState } from './api'
+import { bindApi } from './api'
 import { $designView, bindController } from './controller'
-import { guidanceLayer } from './guidance'
+import { startGlobalRuntime } from './global-runtime'
 import { t } from './i18n'
 import { DesignPage } from './page'
 
@@ -69,35 +68,12 @@ const plugin: HermesPlugin = {
     bindApi(ctx.rest)
     bindController(ctx.rest)
 
-    // Publish "what is the user looking at / selecting" for capability read_state.
-    // Best-effort cache (last writer wins); a failed PUT never blocks the canvas.
-    let publishTimer: ReturnType<typeof setTimeout> | null = null
-    const schedulePublish = () => {
-      if (publishTimer !== null) {
-        clearTimeout(publishTimer)
-      }
-
-      publishTimer = setTimeout(() => {
-        publishTimer = null
-        const view = $designView.get()
-
-        void publishAgentState(
-          buildAgentState({ hash: window.location.hash, pid: view.pid, selection: view.selectedIds })
-        )
-      }, 200)
-    }
-
-    const unsubscribe = $designView.subscribe(schedulePublish)
-    window.addEventListener('hashchange', schedulePublish)
-    ctx.onDispose(() => {
-      unsubscribe()
-      window.removeEventListener('hashchange', schedulePublish)
-      if (publishTimer !== null) {
-        clearTimeout(publishTimer)
-      }
-      // 插件被禁用/卸载时，引导层不能留在 body 上。
-      guidanceLayer.dispose()
-    })
+    // App-level runtime (not the /design page): navigation must land on any
+    // screen and guidance must be consumable everywhere. It also owns
+    // agent-state publication so a navigation ack cannot be overwritten by a
+    // separate debounced publisher.
+    const runtime = startGlobalRuntime({ navigate: path => host.navigate(path) })
+    ctx.onDispose(() => runtime.stop())
 
     ctx.registerMany([
       {

@@ -222,3 +222,31 @@ export async function dismissGuidance(guidanceId: string): Promise<void> {
     // re-dismissed; local DOM is already clean, so this is not fatal.
   }
 }
+
+export type NavigationScreen = 'artifacts' | 'design' | 'settings' | 'work'
+
+export interface NavigationCommand {
+  created_at?: number
+  expires_at?: number
+  request_id: string
+  route: string
+  screen: NavigationScreen
+}
+
+/** M3b: read the one pending navigation request written by `navigate`. */
+export async function fetchNavigation(): Promise<NavigationCommand | null> {
+  const result = await need<{ navigation: NavigationCommand | null }>('/navigation', { timeoutMs: 4000 })
+
+  return result.navigation ?? null
+}
+
+/** One-shot cleanup after the router moved. Scoped to one request id so a late
+ *  delete cannot erase the agent's next navigation. */
+export async function acknowledgeNavigation(requestId: string): Promise<void> {
+  try {
+    await need(`/navigation?request_id=${encodeURIComponent(requestId)}`, { method: 'DELETE', timeoutMs: 4000 })
+  } catch {
+    // The executor also clears its own mailbox; a failed DELETE only leaves a
+    // stale request that expires. Not fatal to the UI.
+  }
+}

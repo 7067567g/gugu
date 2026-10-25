@@ -7,11 +7,15 @@
  */
 import { routeFromHash } from './agent-entry'
 
-export type AgentSurface = 'design' | 'other' | 'settings' | 'work'
+export type AgentSurface = 'artifacts' | 'design' | 'other' | 'settings' | 'work'
 
 export interface AgentState {
+  /** One-shot navigate request this snapshot acknowledges (M3b). */
+  nav_request_id: null | string
   project_id: null | string
   route: string
+  /** Screen the agent asked for; equal to `surface` once the route lands. */
+  screen: AgentSurface
   selection: string[]
   surface: AgentSurface
   updated_at: number
@@ -29,23 +33,30 @@ export function surfaceForRoute(route: string): AgentSurface {
   if (path === '/settings' || path.startsWith('/settings/')) {
     return 'settings'
   }
+  if (path === '/artifacts' || path.startsWith('/artifacts/')) {
+    return 'artifacts'
+  }
   return 'other'
 }
 
 export function buildAgentState(input: {
   hash: string
+  navRequestId?: null | string
   pid: null | string
   selection: readonly string[]
   /** Seconds; injectable so tests do not depend on wall clock. */
   now?: number
 }): AgentState {
   const route = routeFromHash(input.hash)
+  const surface = surfaceForRoute(route)
 
   return {
+    nav_request_id: input.navRequestId ?? null,
     project_id: input.pid ?? null,
     route,
+    screen: surface,
     selection: [...input.selection],
-    surface: surfaceForRoute(route),
+    surface,
     updated_at: input.now ?? Date.now() / 1000
   }
 }

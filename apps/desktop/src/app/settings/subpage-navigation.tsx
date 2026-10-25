@@ -13,6 +13,7 @@ export function SettingsSubpageHeader({ group, child }: { group: OverlayNavGroup
     <nav
       aria-label={group.label}
       className={cn('mb-3 flex shrink-0 items-center gap-1.5 text-xs text-(--ui-text-tertiary)', PAGE_INSET_X)}
+      data-agent-id="settings.header"
     >
       <span className="shrink-0">{t.commandCenter.settings}</span>
       <ChevronRight aria-hidden className="size-3 shrink-0" />
