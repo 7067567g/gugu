@@ -114,6 +114,49 @@ export function isFallbackCommit(commit) {
   return typeof commit === "string" && /^0{7,40}$/.test(commit)
 }
 
+/**
+ * Resolve the `builtAt` field reproducibly.
+ *
+ * `builtAt` ships inside the installer (extraResources -> app.asar -> NSIS
+ * payload), so a wall-clock value makes two builds of the same commit differ.
+ * Reproducible builds use the source timestamp instead:
+ *
+ *   1. $SOURCE_DATE_EPOCH (standard reproducible-builds knob; seconds);
+ *   2. in CI ($GITHUB_SHA set), the commit's committer time -- identical for
+ *      every build of that commit, including both builds in build-win;
+ *   3. otherwise wall-clock time (local builds keep the previous behaviour,
+ *      which bundle-swap.ts still uses to detect a rebuilt bundle).
+ *
+ * Trade-off: in CI `builtAt` becomes the commit timestamp, not the machine's
+ * clock. bundle-swap.ts compares builtAt at the same commit to detect an
+ * on-disk bundle swap; two CI rebuilds of one commit now share a timestamp, so
+ * that signal is weaker. A per-build timestamp makes byte-identical dual
+ * builds impossible; this is recorded in the A04 reports.
+ */
+export function resolveBuiltAt(env = process.env, repoRoot = REPO_ROOT, execFn = tryExec) {
+  const epoch = env.SOURCE_DATE_EPOCH
+  if (epoch) {
+    const seconds = Number(epoch)
+    if (Number.isFinite(seconds) && seconds >= 0) {
+      return new Date(Math.floor(seconds) * 1000).toISOString()
+    }
+    console.warn(
+      "[write-build-stamp] WARNING: ignoring invalid SOURCE_DATE_EPOCH=" + JSON.stringify(epoch)
+    )
+  }
+  if (env.GITHUB_SHA) {
+    const committed = execFn("git show -s --format=%ct HEAD", { cwd: repoRoot })
+    if (committed && /^\d+$/.test(committed)) {
+      return new Date(Number(committed) * 1000).toISOString()
+    }
+    console.warn(
+      "[write-build-stamp] WARNING: CI build but could not read commit time; " +
+        "builtAt will not be reproducible"
+    )
+  }
+  return new Date().toISOString()
+}
+
 function main() {
   const stamp = resolveStamp()
   if (!stamp || !stamp.commit) {
@@ -153,7 +196,7 @@ function main() {
     schemaVersion: STAMP_SCHEMA_VERSION,
     commit: stamp.commit,
     branch: stamp.branch,
-    builtAt: new Date().toISOString(),
+    builtAt: resolveBuiltAt(),
     dirty: stamp.dirty,
     source: stamp.source
   }
@@ -167,7 +210,9 @@ function main() {
       stamp.commit.slice(0, 12) +
       (stamp.branch ? " (" + stamp.branch + ")" : "") +
       (stamp.dirty ? " [DIRTY]" : "") +
-      (stamp.source === "fallback" ? " [FALLBACK]" : "")
+      (stamp.source === "fallback" ? " [FALLBACK]" : "") +
+      " builtAt=" +
+      payload.builtAt
   )
 }
 
