@@ -120,7 +120,7 @@ cd /home/a7067567g/下载/deepseek/60-外部仓库/gugu-work
 
 桌面测试：`guidance.test.ts` 28 条（渲染 3 种 style、重复 show 不叠层、7 个中断源逐个
 断言零残留、超时与提前中断清 timer、listener 调用数、焦点/滚动、布局不变、挂载/测量异常、
-订阅生命周期）；`global-runtime.test.ts` 13 条在 app 级 runtime 上重跑跨 surface 引导、
+订阅生命周期）；`global-runtime.test.ts` 16 条在 app 级 runtime 上重跑跨 surface 引导、
 路由中断、非当前 surface 锚点 dismiss、`stop()` 后 overlay/target/listener/timer 全零。
 Python 测试：registry 契约、锚点枚举（含 work/settings/artifacts）、邮箱写入/清除/作用域、
 端点 GET/DELETE、schema 与错误码。

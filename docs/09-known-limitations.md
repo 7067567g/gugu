@@ -38,7 +38,7 @@ M3b 把消费循环从 `/design` 提升到 app 级 runtime（任意界面可 hig
 - Agent 调用到屏幕可见最多约 1.2s（轮询，不是推送）；
 - 锚点必须在**当前** surface；跨界面要先 `navigate` 再 `highlight`，否则该步被 dismiss；
 - 多步引导 / 滚动跟随未实现（overlay 坐标在 show 时算一次）。
-零残留契约由 28 条 manager vitest + 13 条 app 级 runtime vitest 覆盖（7 个中断源 +
+零残留契约由 28 条 manager vitest + 16 条 app 级 runtime vitest 覆盖（7 个中断源 +
 超时 + stop 后 overlay/target/listener/timer 全零）。
 
 ## 5. `human_interventions` 是常量（B-05）
