@@ -13,7 +13,7 @@ Agent 内核（会话记忆、技能沉淀、子代理、定时任务、终端/�
 | 模式 | 是什么 | 状态 |
 |---|---|---|
 | **工作 Work** | 通用 Agent 工作台：对话、文件、终端、浏览器、技能与记忆，全在会话里发生 | ✅ 可用 |
-| **设计 Design** | 无限画布创作：文生图/图生图、文/图生视频异步任务、素材落画布、本地工程持久化；对话与画布并存 | 🚧 画布移植中 |
+| **设计 Design** | 无限画布创作：文生图/图生图、文/图生视频异步任务、素材落画布、本地工程持久化；对话与画布并存 | ✅ P0 可用（`navigate`/实时引导通道待补） |
 | **编程 Code** | 代码工程模式：编辑器、diff 审批、LSP（复用内核编码能力） | 📋 规划中 |
 
 顶栏左角的三档切换器负责在模式间跳转，每个模式有自己的布局与工具面板——
@@ -35,6 +35,22 @@ Agent 内核（会话记忆、技能沉淀、子代理、定时任务、终端/�
 
 权威文档：[docs/02-三模式架构.md](docs/02-三模式架构.md) —— 改任何模式相关代码前必读。
 
+## P0 agent-native（0.9.0）
+
+P0 只证明一条链路：**任意界面找到 AI 输入框 → 说一句“把这个 repo 变成架构图 + 3 张配图”
+→ Agent 自主完成并落到画布 → 一句修正 → 导出**，全程引导可中断、结束零残留。
+
+- 能力面：11 个 capability（10 `ready` + `navigate` `planned`），单工具 `gugu_capability`
+  发现/调用；画布放置幂等、原地替换、undo、导出。
+- 入口：**⌘⌥A / Ctrl+Alt+A** 或 ⌘K 命令面板；复用现有 composer，不新造聊天框。
+- 引导：`highlight` / `clear_guidance`，7 个中断源零残留（overlay/target/listener/timer/
+  焦点/滚动/布局）。
+- 使用说明：[docs/08-p0-usage.md](docs/08-p0-usage.md)；
+  已知限制：[docs/09-known-limitations.md](docs/09-known-limitations.md)；
+  能力契约：[docs/05-agent-capabilities.md](docs/05-agent-capabilities.md)。
+
+P0 仍是 **agent-native 最小闭环**：不做 Code 深度、视频/故事板、Windows 产线、协作/插件市场。
+
 ## 版本
 
 | gugu 版本 | 上游底座（hermes-agent） | 桌面包 | 说明 |
@@ -47,6 +63,7 @@ Agent 内核（会话记忆、技能沉淀、子代理、定时任务、终端/�
 | [gugu-v0.6.0](https://github.com/7067567g/gugu/releases/tag/gugu-v0.6.0) | 0.21.5 | 0.17.6 | audit@v1 全量审核（结构/测试 CI/文档上游发现 100% 处置）+ X1 机械重整：`build_info` 版本解析单源收敛（先红后绿、单批可回滚） |
 | [gugu-v0.7.0](https://github.com/7067567g/gugu/releases/tag/gugu-v0.7.0) | 0.21.5 | 0.17.6 | L2-G01 CI 接线扩容（`pytest-suites`+`desktop-vitest`，口径统一 43.03%）；L2-G02 MCP watchdog 生产装配（slot 生命周期 + 热路径 reconnect）；L2-G03 网关单缝（`_SealedRegistry`）+ 成本单读数（`read_call_cost`/`read_account_usage`） |
 | [gugu-v0.8.0](https://github.com/7067567g/gugu/releases/tag/gugu-v0.8.0) | 0.21.5 | 0.17.6 | audit@v1 loop-2 收口轮：X2 机械重整——`pyproject.toml [project]` 单源收敛（`version_source.read_project_table`，三模块停止各自 `tomllib`；先红后绿、行为不变、单批可回滚） |
+| [gugu-v0.9.0](https://github.com/7067567g/gugu/releases/tag/gugu-v0.9.0) | 0.21.5 | 0.17.6 | P0 agent-native 四轮收口：11 能力 registry + 单工具入口、全局 AI 入口（⌘⌥A）、hero flow B（Mermaid→SVG + 3 配图主备/mock + 原地修正 + 导出）、引导层零残留（7 中断源）、P0 文档门禁（文档状态=registry） |
 
 ## 快速开始
 
@@ -57,7 +74,8 @@ npm ci --legacy-peer-deps        # 桌面端依赖
 cd apps/desktop && npm run dev   # 起桌面端
 ```
 
-完整流程（含模型接入与常见坑）见 [docs/03-getting-started.md](docs/03-getting-started.md)。
+完整流程（含模型接入与常见坑）见 [docs/03-getting-started.md](docs/03-getting-started.md)；
+P0 创作流程与排障见 [docs/08-p0-usage.md](docs/08-p0-usage.md)。
 
 ## 模型接入
 

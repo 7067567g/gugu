@@ -5,6 +5,96 @@
 > 与桌面包 `apps/desktop/package.json` 的 `0.17.6` 是上游内核/桌面包版本，**不随 gugu 版本递增**。
 > 发布 tag 形如 `gugu-vX.Y.Z`，只推 `origin`（fork），**绝不** push `upstream`。
 
+## 0.9.0 — 2026-10-25
+
+- **gugu 版本**：`0.9.0`（根 `GUGU_VERSION`；P0 agent-native 四轮 M0→M3 首次收口，属新增能力 → MINOR+1）
+- **上游底座**：hermes-agent `0.21.5`（`pyproject.toml`，**未改动**）；桌面包 `0.17.6`（`apps/desktop/package.json`，**未改动**）
+- **轮型 / run**：verify 轮 `gugu-p0-m3-dogfood`（Round 1，loop-gugu-p0 第 4/4 轮）收口；
+  P0 = `gugu-p0-m0-skeleton` → `gugu-p0-m1-hero` → `gugu-p0-m2-guidance` → 本轮
+- **发布 tag**：`gugu-v0.9.0`（annotated；**由主会话/owner 在验收后建**，本 M3 只本地 commit，
+  未 tag、未 push；只推 `origin` fork，**绝不** push `upstream`）
+
+### P0 能力面（M0→M3）
+
+| 文件/模块 | 交付 | 类型 |
+| --- | --- | --- |
+| `plugins/gugu_capabilities/` | 单工具 `gugu_capability` + registry（11 能力）+ executor/store/assets/export/diagram/images/hero_flow；放置幂等、原地替换、undo、审批、结构化错误码 | 增 |
+| `apps/desktop/src/plugins/gugu-design/` | 全局 AI 入口（⌘⌥A / ⌘K）、`data-agent-id` 锚点、agent-state 发布、guidance overlay（highlight/box/label）、导出按钮 | 增/改 |
+| `plugins/gugu-design/dashboard/` | `/agent-state`、`/guidance` GET/DELETE（id 作用域）、`/export`、SVG 资产校验 | 改 |
+| `docs/05`–`07` | 能力契约、hero flow、引导层零残留契约 | 增 |
+| `docs/08-p0-usage.md` | P0 使用说明（入口/能力/hero flow/引导/导出/环境变量/排障） | 增（本轮） |
+| `docs/09-known-limitations.md` | P0 已知限制（owner dogfood、真实模型、navigate、轮询、常量干预、导出无版本等） | 增（本轮） |
+| `tests/plugins/test_gugu_p0_docs_contract.py` | **P0 文档门禁**：`docs/05` 能力表状态必须等于 registry（先红后绿） | 增（本轮） |
+
+### M3 修掉的 P0 门禁失败
+
+- **症状**：`highlight` / `clear_guidance` 在 M2 已 `ready`，但 `docs/05` 仍标
+  `planned (M2)`、`docs/06` 仍写“不做 M2”；103 条 P0 pytest 全绿，没有门禁比较文档与
+  registry，文档漂移在评审中存活。
+- **先红**：在 pre-fix HEAD `1720d81537` 的 `git archive` 树上放新测试 →
+  `1 failed, 1 passed`，`docs/05 status drifted: {'highlight': ('planned','ready'),
+  'clear_guidance': ('planned','ready')}`（原文见
+  `runs/gugu-p0-m3-dogfood/reports/gates-red.txt`）。
+- **后绿**：修 `docs/05`/`docs/06` 后同测试 `2 passed`；P0 子集 `67 passed`。
+- **不是放宽断言**：新测试断言的是“文档状态 = registry 状态”的关系；registry 推进时文档
+  必须同步，正是该门禁要防的漂移。
+
+### M3 自用 dogfood（自动化路径，显式 mock）
+
+```bash
+cd gugu-work
+HERMES_HOME=$(mktemp -d) GUGU_ALLOW_MOCK_IMAGES=1 \
+  .venv/bin/python -m plugins.gugu_capabilities.hero_flow \
+  --repo . --project m3-dogfood --out runs/gugu-p0-m3-dogfood/reports/dogfood/hero-flow.json
+```
+
+- 真实 repo `gugu-work`；4 元素（架构图 + 3 配图）、1 次原地修正（4→4，无副本）、导出
+  92,051 bytes / sha256 `2b9fa0c7…aa8174`；`total 0.471s`。
+- **3 张配图 + 修正图全部是显式 mock**（`mock=true` / `MOCK-*` / PNG 水印），不是真实生成；
+  0.006s 不是真实模型延迟。
+- `list_capabilities` 真跑：11 能力，10 `ready`，1 `planned`（`navigate`）；`read_state`
+  真跑返回画布元素与 selection。
+- **owner 真实任务未做**（headless 进程不能代替），见下“未验证”。
+
+### 门禁真值（`cd gugu-work`）
+
+- `pytest tests/plugins/test_gugu_p0_docs_contract.py + test_gugu_capabilities{,_m1}.py +
+  test_gugu_agent_state_api.py + test_gugu_design_slice.py + test_gugu_guidance.py`
+  → **67 passed，rc=0**。
+- `pytest tests/ci` → **175 passed / 4 skipped，rc=0**（发布一致性 + 版本源）。
+- `scripts/arch/check_boundaries.py --baseline arch/baseline.json` → **baseline-ok，rc=0**。
+- `apps/desktop npm run typecheck` → **rc=0**；`vitest --project ui src/plugins/gugu-design`
+  → **52 passed（4 files），rc=0**。
+- `compileall` → **rc=0**。
+- desktop E15（Electron 真窗口）**未验证**；本轮无 GUI/Electron 会话、无登录凭据。
+
+### 兼容性
+
+- **加法**：`list_capabilities` 新增 `anchors`；HTTP 新增 `/guidance` GET/DELETE；
+  `export_canvas` 与导出端点新增 manifest 字段（不含 `product_version`，见 backlog）。
+- **行为变化（非 BREAKING 的里程碑推进）**：`highlight` / `clear_guidance` 从 planned 变
+  ready（M2）；`update_artifact(instruction)` 从 `generation_required` 变真实重生成（M1）。
+- **更严格**：schema `maxLength` 真正执行；超长 label/text 从静默接受变 `invalid_arguments`。
+- **未引入**：无新 Python/JS 依赖；无 `pyproject.toml`/`package.json`/lock 改动；
+  无 `arch/baseline.json` 改动；无 install 脚本/服务重启；无四源版本统一。
+
+### 未验证 / 已知限制
+
+owner 真实 dogfood、真实 qwen/gpt 网关、`navigate`、host RPC/WS 实时可见、
+`human_interventions` 真计数、导出 manifest 产品版本、Electron 视觉回归、锚点自动漂移检测。
+逐条见 `docs/09-known-limitations.md` 与 `runs/gugu-p0-m3-dogfood/reports/NEXT-BACKLOG.md`。
+
+### 回滚（单批）
+
+```bash
+cd ../gugu-work
+git checkout 1720d81537 -- GUGU_VERSION docs/CHANGELOG-gugu.md README.md \
+  docs/05-agent-capabilities.md docs/06-hero-flow.md docs/07-guidance.md
+rm -f docs/08-p0-usage.md docs/09-known-limitations.md \
+  tests/plugins/test_gugu_p0_docs_contract.py
+git status --porcelain   # 期望 0 行
+```
+
 ## 0.8.0 — 2026-10-18
 
 - **gugu 版本**：`0.8.0`（根 `GUGU_VERSION`；本轮 `audit@v1` 含代码变更 X2 → MINOR+1）
