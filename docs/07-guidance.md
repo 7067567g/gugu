@@ -109,7 +109,7 @@ cd /home/a7067567g/下载/deepseek/60-外部仓库/gugu-work
 .venv/bin/python -m pytest tests/plugins/test_gugu_guidance.py -q --timeout=600
 ```
 
-桌面测试 22 条：渲染 3 种 style、重复 show 不叠层、7 个中断源逐个断言零残留、
+桌面测试 28 条：渲染 3 种 style、重复 show 不叠层、7 个中断源逐个断言零残留、
 超时与提前中断清 timer、listener 调用数、焦点/滚动、布局不变、挂载/测量异常、订阅
 生命周期。Python 测试 13 条：registry 契约、锚点枚举、邮箱写入/清除/作用域、端点
 GET/DELETE、schema 与错误码。
