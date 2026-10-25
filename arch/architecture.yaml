@@ -144,6 +144,15 @@ modules:
     note: "根级门面/内核服务（含 hermes_state* 21 个 sibling）"
 
   # ============================== X 扩展 ==================================
+  - id: gugu_capabilities
+    paths: ["plugins/gugu_capabilities/**"]
+    class: X
+    owner: plugin-authors
+    allowed_deps: [K, X]
+    forbidden_deps: [G, P]
+    note: "M0 agent-native 能力面：capability registry + executor + 跨进程 canvas store + 单工具入口"
+    reason: "新增产品能力扩展（插件形态、可单独禁用）；只依赖 stdlib 与 hermes_constants(K)，不反向依赖 G/P，故归 X 而非 G。"
+
   - id: plugins
     paths: ["plugins/**"]
     class: X

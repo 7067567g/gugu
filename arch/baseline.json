@@ -1,9 +1,9 @@
 {
   "schema": "gugu.arch-baseline/v1",
-  "commit": "6737fff0",
-  "architecture_sha256": "d1a4302e3943710eb3588a3b7d657c151a08d5b4b2dd6baf1974a2e3d055562c",
-  "generated_at": "2026-10-24T20:06:09Z",
-  "reason": "seed: first ast measurement of v0.8.0 (6737fff0); A2 442/613 were line-start grep, this is the script-measured statement graph",
+  "commit": "704d0468be",
+  "architecture_sha256": "e87e55e1b4e681ebb74e1c3097a8be989a80659449d66047805c53cc6126a5da",
+  "generated_at": "2026-10-25T08:04:48Z",
+  "reason": "register M0 gugu_capabilities as X (new plugin module, stdlib + hermes_constants only); counts unchanged, ledger sha refreshed",
   "counts": {
     "G->P": 0,
     "K->G": 1052,
