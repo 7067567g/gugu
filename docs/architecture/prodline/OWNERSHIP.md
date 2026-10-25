@@ -135,6 +135,17 @@ files_sha256}`。A 侧文本用 `sha256:<hex>`；P 在写入 install-receipt 前
 
 P1.3 不得放宽这四条；若要改，按 §1 的变更纪律先改本文件与 `pipeline.yaml`。
 
+**P1.3 实现**（详见 [`ACCEPTANCE-GATE.md`](ACCEPTANCE-GATE.md)）：
+
+- `prodline/gates/receipt_check.py`：按 `pipeline.yaml` 注册表校验 6 个 v1 receipt 的
+  schema、语义必填（task/recovery/release）与可选 sha256 链；退出码 0/1/2。
+- `prodline/runners/accept.py`：只聚合 `path + sha256`，不重算底层证据；真实且
+  `status: pass` 才给该段 PASS；`fixture/mock/accelerated`、缺失 receipt 一律 SKIP；
+  `status: fail` 或 receipt 校验失败为 FAIL；report verdict ∈ `pass|fail|incomplete`。
+- source 段是**证据聚合**，不是第 7 个 receipt：accept 只读
+  `artifacts/source-evidence.json` 并校验其形状/commit/provenance，不重算版本线与
+  lockfile；需要复算时由调用方显式跑 `prodline.stages.source.verify_source_evidence`。
+
 ---
 
 ## 5. v1 演进规则（冻结之后）
@@ -169,6 +180,7 @@ P1.3 不得放宽这四条；若要改，按 §1 的变更纪律先改本文件�
 prodline/
 ├── __init__.py                  # 契约版本常量；无产品 import
 ├── pipeline.yaml                # 5 stage + 6 receipt 映射 + accept 策略
+├── schema_subset.py             # stdlib draft-2020-12 子集校验器（gate + tests）
 ├── schemas/
 │   ├── build-receipt.schema.json
 │   ├── install-receipt.schema.json   # 含 artifact{} 必填
@@ -176,15 +188,23 @@ prodline/
 │   ├── task-receipt.schema.json
 │   ├── recovery-receipt.schema.json
 │   └── release-receipt.schema.json
+├── gates/
+│   ├── __init__.py
+│   ├── receipt_check.py         # P1.3：schema + 语义必填 + sha256 链 + 篡改检测
+│   └── arch_boundaries.py       # P1.3 F2：消费 arch-gate JSON，parse_errors>0 红
 ├── stages/
 │   ├── __init__.py              # stage 包说明
 │   └── source.py                # P1.2：4 条版本线 + tauri(B14) + lockfile 哈希 + CLI
-├── runners/__init__.py          # P1.3 填 receipt_check.py / accept.py
+├── runners/
+│   ├── __init__.py
+│   └── accept.py                # P1.3：聚合器；real 才 PASS，SKIP != PASS
 └── tests/
-    ├── _schema_subset.py        # stdlib schema 子集校验器（测试支持）
     ├── test_pipeline_contract.py
     ├── test_receipt_schemas.py
-    └── test_source_stage.py     # source 正样例 + 漂移/漏登/篡改/CRLF 负样例
+    ├── test_source_stage.py     # source 正样例 + 漂移/漏登/篡改/CRLF 负样例
+    ├── test_receipt_check.py    # 6 家族正样例 + 语义/链/篡改负样例
+    ├── test_accept_runner.py    # real/fixture/skip/fail/expected-pass 负样例
+    └── test_arch_boundaries_gate.py  # F2：parse_errors 与 allowlist 负样例
 ```
 
 ---
@@ -199,17 +219,26 @@ cd /home/a7067567g/下载/deepseek/60-外部仓库/gugu-work
 
 # arch：prodline 记为 P，K/X/G→P = 0
 .venv/bin/python scripts/arch/check_boundaries.py --baseline arch/baseline.json
+
+# receipt 检查：正样例绿、篡改/缺语义字段红
+.venv/bin/python -m prodline.gates.receipt_check --receipts-dir artifacts/receipts
+
+# 聚合：只 source 时要求 PASS；source,build 允许 build=SKIP 且 exit 0
+.venv/bin/python -m prodline.stages.source --root . --out artifacts/source-evidence.json
+.venv/bin/python -m prodline.runners.accept --only source \
+  --out artifacts/receipts/acceptance-report.json --expect-pass
 ```
 
 ---
 
-## 9. 历史：P1.1 不做什么（P1.2 已补 source）
+## 9. 历史：P1.1 不做什么（P1.2/P1.3 已补）
 
 P1.1 的边界保持原样记录：
 
 - 不实现 `stages/source.py`（**P1.2 已实现，见 §2.1 / `SOURCE-EVIDENCE.md`**）、
-  不实现 `receipt_check.py` / `accept.py`（P1.3）；
-- 不生成 `acceptance-report.json`；
+  不实现 `receipt_check.py` / `accept.py`（**P1.3 已实现，见 §4 /
+  `ACCEPTANCE-GATE.md`**）；
+- 不生成 `acceptance-report.json`（**P1.3 可由 `accept.py` 生成**）；
 - 不定义 `artifact-manifest/v1`（A01 的产物契约，本文只引用）；
 - 不跑构建 / 安装 / 真实任务 / soak；
-- 不把 fixture 写成 PASS。
+- 不把 fixture 写成 PASS（P1.3 由 `accept.py` 强制）。

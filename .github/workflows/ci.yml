@@ -23,9 +23,14 @@ jobs:
 
   # Import-boundary gate: K/X/G/P class matrix from arch/architecture.yaml,
   # ratcheted against arch/baseline.json. The checker is stdlib + PyYAML only
-  # (the pin is already a project dependency, pyproject.toml [project].deps),
-  # so this lane installs that single pin instead of the whole product. A
-  # violation growth must turn this check red: do not soften the step, and do
+  # (the pin is already a project dependency, pyproject.toml [project].deps).
+  # Two hardening steps (r03 F2/F4):
+  #   * check_boundaries.py prints parse_errors but does not fail on them; the
+  #     JSON receipt it writes is consumed by prodline.gates.arch_boundaries,
+  #     which exits 2 when a first-party file cannot be parsed and only passes
+  #     files explicitly allowlisted. Do not add continue-on-error.
+  #   * its own unit tests must run here, not only on a developer machine.
+  # A violation growth must turn this check red: do not soften the step, and do
   # not rewrite the baseline from CI (baseline changes are reviewable commits,
   # see docs/architecture/classification.md).
   arch-gate:
@@ -36,12 +41,46 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install gate dependency (PyYAML pin from pyproject.toml)
+      - name: Install gate dependencies (PyYAML + pytest pins from pyproject.toml)
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pyyaml==6.0.3
+          python -m pip install pyyaml==6.0.3 pytest==9.1.1
       - name: Check import boundaries against arch/baseline.json
-        run: python scripts/arch/check_boundaries.py --baseline arch/baseline.json
+        run: |
+          python scripts/arch/check_boundaries.py --baseline arch/baseline.json \
+            --json-out artifacts/arch/boundary-receipt.json
+      - name: Gate first-party parse errors (F2; exit 2 + explicit allowlist only)
+        run: |
+          python -m prodline.gates.arch_boundaries \
+            --receipt artifacts/arch/boundary-receipt.json
+      - name: Arch checker unit tests (F4)
+        run: python -m pytest scripts/arch -q
+
+  # prodline contract gate (P1.3). The six v1 receipts stay frozen; this lane
+  # proves the checker/accept pair with the real checkout's source evidence.
+  # `--expect-pass` is deliberate: accept's default exit 0 covers the contract
+  # case "build is SKIP", but CI must not turn an absent source stage green.
+  # No soft-fail, and it is a required dependency of all-checks-passed.
+  prodline-gate:
+    name: prodline-gate (P1 receipts + accept source)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install gate dependencies (existing pins; no product deps)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml==6.0.3 pytest==9.1.1
+      - name: Receipt / schema / source contract tests
+        run: python -m pytest prodline/tests -q
+      - name: Collect source evidence
+        run: python -m prodline.stages.source --root . --out artifacts/source-evidence.json
+      - name: Accept the source stage (SKIP is not PASS)
+        run: |
+          python -m prodline.runners.accept --only source \
+            --out artifacts/receipts/acceptance-report.json --expect-pass
 
   desktop-typecheck:
     name: Desktop typecheck
@@ -158,6 +197,7 @@ jobs:
     needs:
       - python-compile
       - arch-gate
+      - prodline-gate
       - desktop-typecheck
       - desktop-vitest
       - pytest
@@ -169,6 +209,7 @@ jobs:
         run: |
           echo "python-compile: ${{ needs.python-compile.result }}"
           echo "arch-gate: ${{ needs.arch-gate.result }}"
+          echo "prodline-gate: ${{ needs.prodline-gate.result }}"
           echo "desktop-typecheck: ${{ needs.desktop-typecheck.result }}"
           echo "desktop-vitest: ${{ needs.desktop-vitest.result }}"
           echo "pytest: ${{ needs.pytest.result }}"
@@ -176,6 +217,7 @@ jobs:
           echo "coverage: ${{ needs.coverage.result }}"
           test "${{ needs.python-compile.result }}" = "success"
           test "${{ needs.arch-gate.result }}" = "success"
+          test "${{ needs.prodline-gate.result }}" = "success"
           test "${{ needs.desktop-typecheck.result }}" = "success"
           test "${{ needs.desktop-vitest.result }}" = "success"
           test "${{ needs.pytest.result }}" = "success"

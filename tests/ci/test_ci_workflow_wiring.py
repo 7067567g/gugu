@@ -8,10 +8,11 @@ plus PyYAML: the CI jobs they guard install only ``pytest`` /
 
 Scope: job graph (``pytest`` matrix on 3.11 + 3.12, the wider
 ``pytest-suites`` regression lane, the ``desktop-vitest`` UI lane, a
-``coverage`` job with ``--cov-fail-under=40``, and an ``all-checks-passed``
-aggregator whose ``needs`` covers every other job) plus the matching
-``[tool.coverage.*]`` configuration and its measured-baseline comments in
-``pyproject.toml``.
+``coverage`` job with ``--cov-fail-under=40``, the ``arch-gate`` hardening
+(F2 parse-error gate + F4 checker tests), the P1.3 ``prodline-gate`` lane, and
+an ``all-checks-passed`` aggregator whose ``needs`` covers every other job)
+plus the matching ``[tool.coverage.*]`` configuration and its measured-baseline
+comments in ``pyproject.toml``.
 """
 
 from __future__ import annotations
@@ -30,6 +31,8 @@ PYPROJECT_PATH = REPO_ROOT / "pyproject.toml"
 
 REQUIRED_JOBS = {
     "python-compile",
+    "arch-gate",
+    "prodline-gate",
     "desktop-typecheck",
     "pytest",
     "pytest-suites",
@@ -342,6 +345,71 @@ def test_product_version_is_not_touched_by_ci_wiring() -> None:
     assert config["project"]["version"] == "0.21.5", (
         "T-01 must not change [project].version (upstream kernel stays 0.21.5)"
     )
+
+
+def test_arch_gate_is_a_required_job_and_has_no_soft_fail() -> None:
+    """F1: the boundary gate is pinned; F2/F4 hardening must not be softened."""
+    jobs = _jobs()
+    assert "arch-gate" in REQUIRED_JOBS, "F1: REQUIRED_JOBS must pin arch-gate"
+    assert "arch-gate" in jobs
+
+    job = jobs["arch-gate"]
+    assert job.get("runs-on"), "arch-gate must declare a runner"
+    text = _steps_text(job)
+    assert "check_boundaries.py" in text, "arch-gate must run the boundary checker"
+    assert "--baseline arch/baseline.json" in text, (
+        "arch-gate must ratchet against arch/baseline.json"
+    )
+    assert "--json-out" in text, (
+        "F2 needs the checker's JSON receipt; run it with --json-out"
+    )
+    assert "prodline.gates.arch_boundaries" in text, (
+        "F2: a parse-error gate must consume the JSON receipt"
+    )
+    assert re.search(r"pytest\s+scripts/arch\b", text), (
+        "F4: arch-gate must run the checker's unit tests"
+    )
+    assert "pytest==9.1.1" in text, "F4 needs the pinned pytest in arch-gate"
+
+
+def test_prodline_gate_runs_contract_tests_and_real_accept() -> None:
+    jobs = _jobs()
+    assert "prodline-gate" in jobs, "ci.yml must define a prodline-gate job"
+    job = jobs["prodline-gate"]
+
+    assert job.get("runs-on"), "prodline-gate must declare a runner"
+    text = _steps_text(job)
+    assert re.search(r"python-version:\s*['\"]?3\.12['\"]?", text), (
+        "prodline-gate must run on Python 3.12"
+    )
+    assert "pyyaml==6.0.3" in text, (
+        "prodline-gate must install the existing PyYAML pin (pipeline.yaml parsing)"
+    )
+    assert "pytest==9.1.1" in text, "prodline-gate must pin pytest like the other lanes"
+    assert re.search(r"python -m pytest prodline/tests\b", text), (
+        "prodline-gate must run the prodline contract tests"
+    )
+    assert "prodline.stages.source" in text, (
+        "prodline-gate must collect real source evidence before accept"
+    )
+    assert re.search(r"prodline\.runners\.accept\s+--only source\b", text), (
+        "prodline-gate must run accept --only source"
+    )
+    assert "--expect-pass" in text, (
+        "prodline-gate must fail when the source stage is not PASS"
+    )
+
+
+def test_ci_has_no_continue_on_error_soft_fail() -> None:
+    """A gate that can fail must not be marked `continue-on-error`."""
+    offenders: list[str] = []
+    for job_id, job in _jobs().items():
+        if "continue-on-error" in job:
+            offenders.append(f"job {job_id}")
+        for index, step in enumerate(job.get("steps") or []):
+            if isinstance(step, dict) and "continue-on-error" in step:
+                offenders.append(f"job {job_id} step {index}")
+    assert not offenders, f"ci.yml must not soft-fail gate steps: {offenders}"
 
 
 if __name__ == "__main__":  # pragma: no cover - manual convenience
