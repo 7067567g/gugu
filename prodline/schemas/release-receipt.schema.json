@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gugu.dev/prodline/schemas/release-receipt/v1",
+  "title": "release-receipt/v1",
+  "description": "Evidence for an artifact-to-artifact upgrade, rollback and data-integrity check. Consumed at the quality stage.",
+  "type": "object",
+  "required": ["schema", "commit", "generated_at", "stage", "provenance", "status"],
+  "properties": {
+    "schema": {
+      "const": "release-receipt/v1"
+    },
+    "commit": {
+      "$ref": "#/$defs/commit"
+    },
+    "generated_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "stage": {
+      "const": "quality"
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "status": {
+      "$ref": "#/$defs/status"
+    },
+    "from_artifact": {
+      "$ref": "#/$defs/artifact_ref"
+    },
+    "to_artifact": {
+      "$ref": "#/$defs/artifact_ref"
+    },
+    "upgrade_ok": {
+      "type": "boolean"
+    },
+    "rollback_ok": {
+      "type": "boolean"
+    },
+    "data_check": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "release_version": {
+      "type": "string"
+    },
+    "channels": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "started_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "finished_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "producer": {
+      "$ref": "#/$defs/producer"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence_ref"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "provenance": {
+      "enum": ["real", "fixture", "mock", "accelerated"]
+    },
+    "status": {
+      "enum": ["pass", "fail", "skip"]
+    },
+    "sha256_ref": {
+      "type": "string",
+      "pattern": "^(sha256:)?[0-9a-f]{64}$"
+    },
+    "artifact_ref": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256_ref"
+        },
+        "manifest_sha256": {
+          "$ref": "#/$defs/sha256_ref"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "verified": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true
+    },
+    "evidence_ref": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256_ref"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "producer": {
+      "type": "object",
+      "properties": {
+        "stage": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "contract_version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gugu.dev/prodline/schemas/recovery-receipt/v1",
+  "title": "recovery-receipt/v1",
+  "description": "Evidence for one fault-injection attempt: what was injected, whether the backend recovered, and whether side effects were duplicated. Produced during the runtime stage.",
+  "type": "object",
+  "required": ["schema", "commit", "generated_at", "stage", "provenance", "status"],
+  "properties": {
+    "schema": {
+      "const": "recovery-receipt/v1"
+    },
+    "commit": {
+      "$ref": "#/$defs/commit"
+    },
+    "generated_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "stage": {
+      "const": "runtime"
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "status": {
+      "$ref": "#/$defs/status"
+    },
+    "fault": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fault_type": {
+      "enum": ["kill", "network", "rate_limit_429", "stream_interrupt", "other"]
+    },
+    "injected": {
+      "type": "boolean"
+    },
+    "recovered": {
+      "type": "boolean"
+    },
+    "recovery_seconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "attempts": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "duplicate_side_effects": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "timeline": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "backend_health": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "started_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "finished_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "producer": {
+      "$ref": "#/$defs/producer"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence_ref"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "provenance": {
+      "enum": ["real", "fixture", "mock", "accelerated"]
+    },
+    "status": {
+      "enum": ["pass", "fail", "skip"]
+    },
+    "sha256_ref": {
+      "type": "string",
+      "pattern": "^(sha256:)?[0-9a-f]{64}$"
+    },
+    "evidence_ref": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256_ref"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "producer": {
+      "type": "object",
+      "properties": {
+        "stage": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "contract_version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

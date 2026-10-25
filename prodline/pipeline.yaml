@@ -1,0 +1,91 @@
+# gugu prodline pipeline contract (P1.1)
+#
+# This file is the single machine-readable source of truth for:
+#   * the five stable stage ids and their order;
+#   * which receipt schema each stage produces;
+#   * the acceptance policy that P1.3 implements (declared here, enforced there).
+#
+# Contract rules:
+#   * Stage ids are frozen: source / build / install / runtime / quality.
+#   * Receipt schemas are frozen at v1: build / install / runtime / task /
+#     recovery / release.  v1 only gains optional fields; a semantic change
+#     requires a new v2 schema.
+#   * `SKIP` is not `PASS`, and a receipt whose `provenance != "real"` must
+#     never produce a PASS segment in the acceptance report.
+#   * `accept` only aggregates receipt path + sha256; it never recomputes the
+#     underlying evidence.
+#
+# Validation: `.venv/bin/python -m pytest prodline/tests -q`
+
+schema: gugu.prodline-pipeline/v1
+contract_version: 1
+status: p1-draft # frozen at gugu-pl-p1-close
+updated: "2026-10-25"
+
+schema_draft: "https://json-schema.org/draft/2020-12/schema"
+schema_id_base: "https://gugu.dev/prodline/schemas"
+
+stages:
+  - id: source
+    order: 10
+    summary: "Read-only source, version-line and lockfile assertions; evidence is an input to build."
+    receipts: [] # no source receipt in the fixed six-schema v1 contract
+
+  - id: build
+    order: 20
+    summary: "Produce artifact.zip + artifact-manifest.json and build-receipt/v1."
+    receipts: [build]
+
+  - id: install
+    order: 30
+    summary: "Install from the artifact, verify its bytes, and produce install-receipt/v1."
+    receipts: [install]
+
+  - id: runtime
+    order: 40
+    summary: "First boot, task samples and fault injection; produce runtime/task/recovery receipts."
+    receipts: [runtime, task, recovery]
+
+  - id: quality
+    order: 50
+    summary: "Upgrade/rollback quality gate and final acceptance aggregation; consume release-receipt/v1."
+    receipts: [release]
+
+receipts:
+  build:
+    schema_id: build-receipt/v1
+    schema: schemas/build-receipt.schema.json
+  install:
+    schema_id: install-receipt/v1
+    schema: schemas/install-receipt.schema.json
+  runtime:
+    schema_id: runtime-receipt/v1
+    schema: schemas/runtime-receipt.schema.json
+  task:
+    schema_id: task-receipt/v1
+    schema: schemas/task-receipt.schema.json
+  recovery:
+    schema_id: recovery-receipt/v1
+    schema: schemas/recovery-receipt.schema.json
+  release:
+    schema_id: release-receipt/v1
+    schema: schemas/release-receipt.schema.json
+
+receipt_contract:
+  required_common_fields: [schema, commit, generated_at, stage, provenance, status]
+  provenance_values: [real, fixture, mock, accelerated]
+  status_values: [pass, fail, skip]
+  additive_only: true # v1 only gains optional fields; semantic changes need v2
+
+acceptance:
+  report_schema: acceptance-report/v1
+  report_fields: [schema, commit, stages, receipts, verdict]
+  rules:
+    aggregate_only: true # aggregate receipt path + sha256, never recompute
+    skip_is_not_pass: true
+    pass_requires_provenance: real
+
+notes:
+  - "source has no receipt schema in the fixed six-schema v1 contract; its evidence feeds build."
+  - "task and recovery receipts are produced during the runtime stage; release is consumed at quality."
+  - "fixture/mock/accelerated receipts are shape-valid evidence, never a PASS."

@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gugu.dev/prodline/schemas/install-receipt/v1",
+  "title": "install-receipt/v1",
+  "description": "Evidence that an artifact was installed and its bytes were verified. The artifact block is mandatory (R-P1-b).",
+  "type": "object",
+  "required": ["schema", "commit", "generated_at", "stage", "provenance", "status", "artifact"],
+  "properties": {
+    "schema": {
+      "const": "install-receipt/v1"
+    },
+    "commit": {
+      "$ref": "#/$defs/commit"
+    },
+    "generated_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "stage": {
+      "const": "install"
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "status": {
+      "$ref": "#/$defs/status"
+    },
+    "artifact": {
+      "$ref": "#/$defs/artifact"
+    },
+    "install_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "started_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "finished_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "duration_s": {
+      "type": "number",
+      "minimum": 0
+    },
+    "os": {
+      "type": "string"
+    },
+    "runner": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "product_version": {
+      "type": "string"
+    },
+    "kernel_version": {
+      "type": "string"
+    },
+    "desktop_version": {
+      "type": "string"
+    },
+    "health_version": {
+      "type": "string"
+    },
+    "installer_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "uninstall_ok": {
+      "type": "boolean"
+    },
+    "residual": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "clean_precondition": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/error_entry"
+      }
+    },
+    "producer": {
+      "$ref": "#/$defs/producer"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence_ref"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "provenance": {
+      "enum": ["real", "fixture", "mock", "accelerated"]
+    },
+    "status": {
+      "enum": ["pass", "fail", "skip"]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "sha256_ref": {
+      "type": "string",
+      "pattern": "^(sha256:)?[0-9a-f]{64}$"
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["path", "sha256", "manifest_sha256", "provenance", "verified"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "manifest_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "verified": {
+          "type": "boolean"
+        },
+        "manifest_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "installer_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "verification": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "boolean"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "error_entry": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "evidence_ref": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256_ref"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "producer": {
+      "type": "object",
+      "properties": {
+        "stage": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "contract_version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

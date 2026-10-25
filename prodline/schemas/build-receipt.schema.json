@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gugu.dev/prodline/schemas/build-receipt/v1",
+  "title": "build-receipt/v1",
+  "description": "Evidence that a source commit was turned into the artifact set. v1 is additive-only.",
+  "type": "object",
+  "required": ["schema", "commit", "generated_at", "stage", "provenance", "status"],
+  "properties": {
+    "schema": {
+      "const": "build-receipt/v1"
+    },
+    "commit": {
+      "$ref": "#/$defs/commit"
+    },
+    "commit_short": {
+      "type": "string"
+    },
+    "generated_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "stage": {
+      "const": "build"
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "status": {
+      "$ref": "#/$defs/status"
+    },
+    "tag": {
+      "type": ["string", "null"]
+    },
+    "branch": {
+      "type": "string"
+    },
+    "dirty": {
+      "type": "boolean"
+    },
+    "os": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runner": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "product_version": {
+      "type": "string"
+    },
+    "desktop_version": {
+      "type": "string"
+    },
+    "upstream_tag": {
+      "type": "string"
+    },
+    "upstream_kernel_version": {
+      "type": "string"
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "lockfiles": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/sha256_ref"
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/build_artifact"
+      }
+    },
+    "clean_build": {
+      "type": "boolean"
+    },
+    "clean_method": {
+      "type": "string"
+    },
+    "reproducibility": {
+      "$ref": "#/$defs/reproducibility"
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "build_fingerprint": {
+      "$ref": "#/$defs/sha256_ref"
+    },
+    "producer": {
+      "$ref": "#/$defs/producer"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence_ref"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "provenance": {
+      "enum": ["real", "fixture", "mock", "accelerated"]
+    },
+    "status": {
+      "enum": ["pass", "fail", "skip"]
+    },
+    "sha256_ref": {
+      "type": "string",
+      "pattern": "^(sha256:)?[0-9a-f]{64}$"
+    },
+    "evidence_ref": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256_ref"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "producer": {
+      "type": "object",
+      "properties": {
+        "stage": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "contract_version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "build_artifact": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256_ref"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "type": "string"
+        },
+        "manifest_path": {
+          "type": "string"
+        },
+        "manifest_sha256": {
+          "$ref": "#/$defs/sha256_ref"
+        }
+      },
+      "additionalProperties": true
+    },
+    "reproducibility": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "enum": ["byte-identical", "manifest-normalized", "single-build", "not-attempted"]
+        },
+        "verdict": {
+          "enum": ["equal", "differ", "not-attempted"]
+        },
+        "builds": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "compared_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exclusions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

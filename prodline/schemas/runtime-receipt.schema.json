@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gugu.dev/prodline/schemas/runtime-receipt/v1",
+  "title": "runtime-receipt/v1",
+  "description": "Evidence about a single product process: readiness, versions, shutdown. Product, kernel and health versions are separate fields on purpose.",
+  "type": "object",
+  "required": ["schema", "commit", "generated_at", "stage", "provenance", "status"],
+  "properties": {
+    "schema": {
+      "const": "runtime-receipt/v1"
+    },
+    "commit": {
+      "$ref": "#/$defs/commit"
+    },
+    "generated_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "stage": {
+      "const": "runtime"
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "status": {
+      "$ref": "#/$defs/status"
+    },
+    "started_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "stopped_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "ready_seconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "pid": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "endpoint": {
+      "type": "string"
+    },
+    "product_version": {
+      "type": "string"
+    },
+    "kernel_version": {
+      "type": "string"
+    },
+    "desktop_version": {
+      "type": "string"
+    },
+    "health_version": {
+      "type": "string"
+    },
+    "health": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "log_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "shutdown": {
+      "enum": ["graceful", "forced", "still-running", "unknown"]
+    },
+    "exit_code": {
+      "type": ["integer", "null"]
+    },
+    "os": {
+      "type": "string"
+    },
+    "runner": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "producer": {
+      "$ref": "#/$defs/producer"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence_ref"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "provenance": {
+      "enum": ["real", "fixture", "mock", "accelerated"]
+    },
+    "status": {
+      "enum": ["pass", "fail", "skip"]
+    },
+    "sha256_ref": {
+      "type": "string",
+      "pattern": "^(sha256:)?[0-9a-f]{64}$"
+    },
+    "evidence_ref": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256_ref"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "producer": {
+      "type": "object",
+      "properties": {
+        "stage": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "contract_version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}
