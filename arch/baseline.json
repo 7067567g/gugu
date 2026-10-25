@@ -1,9 +1,9 @@
 {
   "schema": "gugu.arch-baseline/v1",
-  "commit": "8ba4aef3e1",
-  "architecture_sha256": "59ebfae39fe7f25fc4458a2e6d11c270e7c30973a103b8df98c46656b40095af",
-  "generated_at": "2026-10-25T08:25:46Z",
-  "reason": "M1 gugu_capabilities: +1 X->G lazy credential-resolution edge (hermes_cli.gugu_service, call-time only, never persisted); all other deps unchanged",
+  "commit": "cdb349f7f1",
+  "architecture_sha256": "ec0ab627e8e462e3b8495a05d8eefada3be0404f472751897507cdd5258be660",
+  "generated_at": "2026-10-25T10:57:59Z",
+  "reason": "P1 skeleton: register prodline/** as P (contract layer, product never imports); forbidden pair counts unchanged, K/X/G->P=0",
   "counts": {
     "G->P": 0,
     "K->G": 1052,

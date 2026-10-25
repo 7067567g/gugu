@@ -257,6 +257,16 @@ modules:
     note: "根级入口/宿主：CLI、批量入口、MCP stdio server、进程 bootstrap、启动看门狗"
 
   # ============================= P 产线工具 ===============================
+  - id: prodline
+    paths: ["prodline/**"]
+    class: P
+    owner: release-manager
+    allowed_deps: [P, K, X, G]
+    forbidden_deps: []
+    note: >-
+      P1 产线契约层：pipeline.yaml、6 个 receipt schema、后续 stages/runners；
+      只在构建/安装/验收/取证时运行，产品进程永不 import（K/X/G→P 必须为 0）。
+
   - id: scripts
     paths: ["scripts/**"]
     class: P
