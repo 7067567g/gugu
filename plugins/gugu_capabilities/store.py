@@ -27,6 +27,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Mapping, Optional
 
+from . import assets as _assets
+
 try:  # POSIX; M0 targets Linux/macOS desktop dev boxes.
     import fcntl
 except ImportError:  # pragma: no cover - Windows is explicitly out of M0 scope
@@ -157,6 +159,119 @@ def _save_document(project_id: str, doc: Dict[str, Any]) -> None:
     _atomic_write_json(project_dir(project_id) / "project.json", doc)
 
 
+def create_project(project_id: str, name: str) -> Dict[str, Any]:
+    """Create an empty canvas document (used by the hero E2E and tests)."""
+    if _PROJECT_ID_RE.match(str(project_id)) is None:
+        raise StoreError("invalid_project_id", f"非法工程 id: {project_id!r}")
+    directory = designs_root() / project_id
+    if directory.exists():
+        raise StoreError("project_exists", f"工程已存在: {project_id}")
+    (directory / "assets").mkdir(parents=True)
+    now = time.time()
+    doc: Dict[str, Any] = {
+        "schemaVersion": 1,
+        "revision": 1,
+        "id": project_id,
+        "name": name or project_id,
+        "createdAt": now,
+        "updatedAt": now,
+        "viewport": {"x": 0, "y": 0, "scale": 1},
+        "assets": {},
+        "comments": {},
+        "elements": {},
+        "versions": {},
+        "jobs": {},
+        "recent_operation_ids": [],
+        "operation_results": {},
+    }
+    _atomic_write_json(directory / "project.json", doc)
+    return copy.deepcopy(doc)
+
+
+_ASSET_META_KEYS = ("prompt", "model", "mock", "size", "source", "fallback", "attempts", "correction", "diagram")
+
+
+def register_asset(
+    project_id: str,
+    data: bytes,
+    media_type: str,
+    name: str,
+    metadata: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Validate + persist one generated artifact into the project document."""
+    media = _assets.validate_asset_bytes(data, media_type)
+    with project_lock(project_id):
+        doc = load_document(project_id)
+        asset_id = uuid.uuid4().hex[:16]
+        filename = _assets.asset_filename(media, asset_id)
+        _assets.atomic_write_bytes(project_dir(project_id) / "assets" / filename, data)
+        width, height = _assets.image_dimensions(data, media)
+        asset: Dict[str, Any] = {
+            "id": asset_id,
+            "name": name,
+            "mediaType": media,
+            "bytes": len(data),
+            "width": width,
+            "height": height,
+            "createdAt": time.time(),
+            "kind": "video" if media.startswith("video/") else "image",
+        }
+        for key in _ASSET_META_KEYS:
+            if metadata and key in metadata and metadata[key] not in (None, ""):
+                asset[key] = copy.deepcopy(metadata[key])
+        version_id = uuid.uuid4().hex[:16]
+        version = {"id": version_id, "assetId": asset_id, "createdAt": time.time(), "label": name}
+        assets_map = doc.setdefault("assets", {})
+        if not isinstance(assets_map, dict):
+            raise StoreError("project_document_invalid", "assets 不是对象")
+        versions_map = doc.setdefault("versions", {})
+        if not isinstance(versions_map, dict):
+            raise StoreError("project_document_invalid", "versions 不是对象")
+        assets_map[asset_id] = asset
+        versions_map[version_id] = version
+        asset["versionId"] = version_id
+        doc["revision"] = int(doc.get("revision", 0)) + 1
+        doc["updatedAt"] = time.time()
+        _save_document(project_id, doc)
+        _append_activity(
+            project_id,
+            "register_asset",
+            doc["revision"],
+            {"asset_id": asset_id, "media_type": media, "mock": bool(asset.get("mock")), "name": name},
+        )
+        return _assets.asset_metadata(asset)
+
+
+def write_text_artifact(project_id: str, text: str, name: str = "outline") -> Dict[str, Any]:
+    """Persist the last-resort text outline (not a canvas asset)."""
+    with project_lock(project_id):
+        load_document(project_id)
+        digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+        directory = project_dir(project_id) / "artifacts"
+        directory.mkdir(exist_ok=True)
+        path = directory / f"{name}-{digest}.md"
+        payload = text.encode("utf-8")
+        _assets.atomic_write_bytes(path, payload)
+        return {
+            "path": str(path),
+            "bytes": len(payload),
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "format": "text/markdown",
+        }
+
+
+def element_with_asset(project_id: str, element_id: str) -> Dict[str, Any]:
+    with project_lock(project_id):
+        doc = load_document(project_id)
+        elements = doc.get("elements") if isinstance(doc.get("elements"), dict) else {}
+        element = elements.get(element_id)
+        if not isinstance(element, dict):
+            raise StoreError("element_not_found", f"元素不存在: {element_id}", {"element_id": element_id})
+        assets_map = doc.get("assets") if isinstance(doc.get("assets"), dict) else {}
+        asset = assets_map.get(element.get("assetId"))
+        return {"element": copy.deepcopy(element), "asset": copy.deepcopy(asset) if isinstance(asset, dict) else {}}
+
+
 def _undo_path(project_id: str) -> Path:
     return project_dir(project_id) / "agent-undo.json"
 
@@ -278,6 +393,7 @@ def element_summary(element: Mapping[str, Any]) -> Dict[str, Any]:
         "z": element.get("z"),
         "hidden": bool(element.get("hidden")),
         "locked": bool(element.get("locked")),
+        "label": element.get("label") or "",
     }
 
 
@@ -396,6 +512,9 @@ def place_on_canvas(
             "y": y,
             "z": next_z,
         }
+        label = str(artifact.get("label") or "").strip()
+        if label:
+            element["label"] = label[:80]
 
         snapshot = _snapshot_canvas(doc)
         elements[eid] = element

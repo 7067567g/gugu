@@ -362,6 +362,21 @@ function CanvasImage({ element, mediaKind, onCommentPoint, onGestureMove, onGest
               }}
             />
           )}
+      {element.label
+        ? (
+            <Text
+              align="center"
+              fill="#8b93a1"
+              fontSize={13}
+              listening={false}
+              rotation={element.rotation}
+              text={element.label}
+              width={element.width}
+              x={element.x}
+              y={element.y + element.height + 6}
+            />
+          )
+        : null}
       <Transformer
         anchorFill="#fff"
         anchorSize={9}

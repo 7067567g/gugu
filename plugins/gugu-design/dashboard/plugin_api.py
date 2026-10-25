@@ -213,7 +213,7 @@ def _register_asset(d: Path, doc: Dict[str, Any], data: bytes, media_type: str, 
     d_assets = d / "assets"
     d_assets.mkdir(exist_ok=True)
     gs.atomic_write_bytes(gs.safe_join(d_assets, gs.asset_filename(media_type, aid)), data)
-    width, height = gs.image_dimensions(data) if media_type.startswith("image/") else (0, 0)
+    width, height = gs.image_dimensions(data, media_type) if media_type.startswith("image/") else (0, 0)
     asset = {
         "id": aid, "name": name, "mediaType": media_type, "bytes": len(data),
         "width": width, "height": height, "createdAt": time.time(),
@@ -612,6 +612,24 @@ async def get_asset(pid: str, aid: str, b64: Optional[int] = None):
         # 桌面插件 rest 门通道：<img> 无法带 session token（见前端 fetchAssetUrl）
         return {"data": base64.b64encode(f.read_bytes()).decode(), "mediaType": asset["mediaType"]}
     return FileResponse(f, media_type=asset["mediaType"])
+
+
+@router.post("/projects/{pid}/export")
+async def export_canvas(pid: str):
+    """M1 export bundle: one self-contained zip (project + assets + preview + manifest)."""
+    _project_dir(pid)
+    try:
+        import importlib
+
+        exporter = importlib.import_module("plugins.gugu_capabilities.export")
+        result = exporter.export_project(pid)
+    except Exception as exc:  # noqa: BLE001 — surface a 4xx, never a 500 HTML page
+        raise HTTPException(status_code=400, detail=f"导出失败: {exc}") from exc
+    payload = Path(result["path"]).read_bytes()
+    return {
+        **result,
+        "data": base64.b64encode(payload).decode("ascii"),
+    }
 
 
 class JobBody(BaseModel):

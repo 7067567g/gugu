@@ -1,6 +1,6 @@
 name: gugu-capabilities
-version: 0.1.0
-description: "咕咕 M0 agent-native 能力面：10 个能力的 registry + 单工具 gugu_capability（list_capabilities / read_state / place_on_canvas / update_artifact / undo 真跑；生成与引导显式 planned）。"
+version: 0.2.0
+description: "咕咕 M1 agent-native 能力面：11 个能力的 registry + 单工具 gugu_capability（Mermaid→SVG 架构图、主备/显式 mock 配图、画布放置、原地修正、导出、undo 真跑；引导层仍显式 planned）。"
 author: JoyDove
 kind: standalone
 provides_tools:

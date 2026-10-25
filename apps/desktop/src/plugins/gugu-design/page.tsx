@@ -3,6 +3,8 @@ import { Button, Codicon, Input, cn, host, useValue } from '@hermes/plugin-sdk'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import {
+  downloadCanvasExport,
+  exportCanvas,
   ingestCompletedJobs,
   uploadAsset,
   useCreateProject,
@@ -238,6 +240,7 @@ function Workspace({ onBack }: { onBack: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const canvasBoxRef = useRef<HTMLDivElement>(null)
   const [box, setBox] = useState({ h: 600, w: 900 })
+  const [exporting, setExporting] = useState(false)
   const pid = view.pid ?? ''
   const doc = view.document
   const hasSelection = view.selectedIds.length > 0
@@ -271,6 +274,22 @@ function Workspace({ onBack }: { onBack: () => void }) {
       }
     }
   }, [pid])
+
+  const onExport = useCallback(async () => {
+    if (!pid || exporting) {
+      return
+    }
+
+    setExporting(true)
+
+    try {
+      downloadCanvasExport(await exportCanvas(pid))
+    } catch (error) {
+      window.alert(String(error))
+    } finally {
+      setExporting(false)
+    }
+  }, [exporting, pid])
 
   const onComment = useCallback((anchor: PendingCommentAnchor) => {
     // M2b：锚点先落文档（draft）；送会话处理在 M4 接 composer。
@@ -333,6 +352,16 @@ function Workspace({ onBack }: { onBack: () => void }) {
           <Button data-agent-id="design.canvas.upload" onClick={() => fileRef.current?.click()} size="icon-sm" variant="ghost" title={t('toolUpload')}><Codicon name="add" /></Button>
           <Button data-agent-id="design.canvas.hide" disabled={!hasSelection} onClick={() => designController.hideSelected()} size="icon-sm" variant="ghost" title={t('toolHide')}>
             <Codicon name="trash" />
+          </Button>
+          <Button
+            data-agent-id="canvas.export"
+            disabled={exporting || Object.keys(doc.elements).length === 0}
+            onClick={() => void onExport()}
+            size="icon-sm"
+            title={t('toolExport')}
+            variant="ghost"
+          >
+            <Codicon name="cloud-download" />
           </Button>
           <span className="px-1 text-xs tabular-nums opacity-60">{Math.round((doc.viewport.scale ?? 1) * 100)}%</span>
           <input

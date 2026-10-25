@@ -20,6 +20,7 @@ conftest is intentionally bypassed in the acceptance command.
 from __future__ import annotations
 
 import asyncio
+import base64
 import importlib.util
 import sys
 from pathlib import Path
@@ -153,6 +154,34 @@ def test_submit_job_rejects_unknown_kind(design_plugin):
             )
         )
     assert excinfo.value.status_code == 400
+
+
+def test_export_endpoint_returns_a_self_contained_zip(design_plugin, monkeypatch):
+    """The desktop export button goes through this route; it must return real zip bytes."""
+    from plugins.gugu_capabilities import images, store as cap_store
+
+    monkeypatch.setattr(cap_store, "designs_root", lambda: design_plugin._designs_root())
+    project_id = _create_project(design_plugin, "Export me")
+    asset = cap_store.register_asset(
+        project_id,
+        images.mock_png("warm hero", "256x256"),
+        "image/png",
+        "MOCK-hero.png",
+        {"mock": True, "model": "mock"},
+    )
+    placed = cap_store.place_on_canvas(
+        project_id,
+        {"asset_id": asset["id"], "key": "hero", "label": "Hero"},
+        {"x": 10, "y": 20},
+    )
+    assert placed["created"] is True
+
+    result = asyncio.run(design_plugin.export_canvas(project_id))
+    payload = base64.b64decode(result["data"])
+    assert payload.startswith(b"PK")
+    assert result["filename"].endswith(".zip")
+    assert result["bytes"] == len(payload)
+    assert result["mock_assets"] == 1
 
 
 # ---------------------------------------------------------------------------

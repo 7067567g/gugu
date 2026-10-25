@@ -8,9 +8,10 @@ arguments against the registry schema, enforces approval, and refuses to run a
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Callable, Dict, Mapping, Optional
 
-from . import registry, schema, store
+from . import assets as _assets, diagram, export, images, registry, schema, store
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,14 @@ def execute(capability_id: str, arguments: Optional[Mapping[str, Any]] = None, *
         data = handler(args)
     except store.StoreError as exc:
         return _error(capability_id, exc.code, exc.message, exc.details)
+    except (diagram.DiagramError, images.ImageError) as exc:
+        details: Dict[str, Any] = {}
+        attempts = getattr(exc, "attempts", None)
+        if attempts:
+            details["attempts"] = attempts
+        return _error(capability_id, "generation_failed", str(exc), details)
+    except export.ExportError as exc:
+        return _error(capability_id, "export_failed", str(exc))
     except Exception as exc:  # noqa: BLE001 — tool surface must return an envelope, never crash the turn
         logger.exception("capability %s failed", capability_id)
         return _error(capability_id, "internal_error", f"{capability_id} 执行失败: {exc}")
@@ -158,15 +167,172 @@ def _place_on_canvas(args: Mapping[str, Any]) -> Dict[str, Any]:
     )
 
 
+def _resolve_project(args: Mapping[str, Any]) -> str:
+    explicit = str(args.get("project_id") or "").strip()
+    if explicit:
+        return explicit
+    runtime = store.read_runtime_state() or {}
+    project_id = str(runtime.get("project_id") or "").strip()
+    if not project_id:
+        raise store.StoreError(
+            "project_required",
+            "该能力需要一个工程：传 project_id，或先让桌面渲染端发布 agent-state",
+        )
+    return project_id
+
+
+def _slug(value: str, fallback: str = "artifact") -> str:
+    text = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-")
+    return (text[:48] or fallback).lower()
+
+
+def _generate_diagram(args: Mapping[str, Any]) -> Dict[str, Any]:
+    project_id = _resolve_project(args)
+    source = str(args["source"])
+    source_kind = str(args.get("source_kind") or "repo")
+    style = str(args.get("style") or "")
+    try:
+        built = diagram.build_diagram(source, source_kind, style)
+    except diagram.DiagramError:
+        try:
+            outline = diagram.source_to_outline(source, source_kind)
+        except diagram.DiagramError:
+            # Last rung: keep whatever the caller gave us rather than fail hard.
+            outline = {"title": "Outline", "outline": [source.strip()[:400] or "empty source"]}
+        text = diagram.render_text_outline(outline["title"], outline["outline"])
+        stored = store.write_text_artifact(project_id, text, name="diagram-outline")
+        artifact = {
+            "kind": "diagram-text",
+            "format": "text/markdown",
+            "name": f"{outline['title']}.md",
+            "path": stored["path"],
+            "sha256": stored["sha256"],
+            "bytes": stored["bytes"],
+            "fallback": "text",
+        }
+        return {"artifact": artifact, "mermaid": "", "svg": "", "format": "text/markdown", "fallback": "text"}
+
+    title = built["title"]
+    asset = store.register_asset(
+        project_id,
+        built["svg"].encode("utf-8"),
+        "image/svg+xml",
+        f"{_slug(title, 'architecture')}.svg",
+        {
+            "source": "diagram",
+            "fallback": built["fallback"],
+            "diagram": {"mermaid": built["mermaid"] or built["mermaid_attempt"], "digest": built["digest"]},
+        },
+    )
+    artifact = {
+        "asset_id": asset["id"],
+        "kind": "diagram",
+        "format": "svg",
+        "name": f"{title}.svg",
+        "media_type": "image/svg+xml",
+        "width": asset.get("width"),
+        "height": asset.get("height"),
+        "fallback": built["fallback"],
+        "digest": built["digest"],
+    }
+    return {
+        "artifact": artifact,
+        "mermaid": built["mermaid"] or built["mermaid_attempt"],
+        "svg": built["svg"],
+        "format": "svg",
+        "fallback": built["fallback"],
+    }
+
+
+def _generate_image(args: Mapping[str, Any]) -> Dict[str, Any]:
+    project_id = _resolve_project(args)
+    prompt = str(args["prompt"])
+    label = str(args.get("label") or "").strip()
+    result = images.generate_with_fallback(
+        prompt,
+        model=str(args.get("model") or ""),
+        size=str(args.get("size") or ""),
+        label=label,
+    )
+    mock = bool(result.get("mock"))
+    suffix = _assets.media_extension(str(result["media_type"]))
+    name = f"{'MOCK-' if mock else ''}{_slug(label or prompt, 'image')}.{suffix}"
+    asset = store.register_asset(
+        project_id,
+        result["data"],
+        str(result["media_type"]),
+        name,
+        images.image_metadata(result, prompt, source="image"),
+    )
+    artifact = {
+        "asset_id": asset["id"],
+        "kind": "image",
+        "name": name,
+        "media_type": asset.get("mediaType"),
+        "width": asset.get("width"),
+        "height": asset.get("height"),
+        "model": result.get("model"),
+        "mock": mock,
+    }
+    return {
+        "artifact": artifact,
+        "model": result.get("model"),
+        "mock": mock,
+        "attempts": result.get("attempts") or [],
+    }
+
+
 def _update_artifact(args: Mapping[str, Any]) -> Dict[str, Any]:
-    return store.update_artifact(
-        project_id=str(args["project_id"]),
-        element_id=str(args["element_id"]),
-        asset_id=args.get("asset_id"),
+    project_id = str(args["project_id"])
+    element_id = str(args["element_id"])
+    asset_id = args.get("asset_id")
+    instruction = str(args.get("instruction") or "").strip()
+    regenerated = False
+    model = ""
+    mock = False
+    if instruction and not asset_id:
+        detail = store.element_with_asset(project_id, element_id)
+        current_asset = detail.get("asset") or {}
+        element = detail.get("element") or {}
+        base_prompt = str(current_asset.get("prompt") or element.get("label") or current_asset.get("name") or "canvas illustration")
+        warm = any(token in instruction.lower() for token in ("warm", "暖", "cozy", "orange"))
+        combined_prompt = f"{base_prompt}\nRevision instruction: {instruction}"
+        result = images.generate_with_fallback(
+            combined_prompt,
+            size=str(current_asset.get("size") or "1024x1024"),
+            label=str(element.get("label") or ""),
+            warm=warm if warm else None,
+        )
+        model = str(result.get("model") or "")
+        mock = bool(result.get("mock"))
+        suffix = _assets.media_extension(str(result["media_type"]))
+        name = f"{'MOCK-' if mock else ''}{_slug(element.get('label') or 'corrected', 'corrected')}.{suffix}"
+        asset = store.register_asset(
+            project_id,
+            result["data"],
+            str(result["media_type"]),
+            name,
+            images.image_metadata(result, combined_prompt, source="image-correction", correction=instruction),
+        )
+        asset_id = asset["id"]
+        regenerated = True
+
+    data = store.update_artifact(
+        project_id=project_id,
+        element_id=element_id,
+        asset_id=asset_id,
         patch=args.get("patch"),
-        instruction=args.get("instruction"),
+        instruction=instruction if not regenerated else None,
         operation_id=args.get("operation_id"),
     )
+    if regenerated:
+        data = dict(data)
+        data.update({"regenerated": True, "model": model, "mock": mock})
+    return data
+
+
+def _export_canvas(args: Mapping[str, Any]) -> Dict[str, Any]:
+    return export.export_project(str(args["project_id"]), str(args.get("format") or "zip"))
 
 
 def _undo(args: Mapping[str, Any]) -> Dict[str, Any]:
@@ -176,7 +342,10 @@ def _undo(args: Mapping[str, Any]) -> Dict[str, Any]:
 _HANDLERS: Dict[str, Callable[[Mapping[str, Any]], Dict[str, Any]]] = {
     "list_capabilities": _list_capabilities,
     "read_state": _read_state,
+    "generate_diagram": _generate_diagram,
+    "generate_image": _generate_image,
     "place_on_canvas": _place_on_canvas,
     "update_artifact": _update_artifact,
+    "export_canvas": _export_canvas,
     "undo": _undo,
 }

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -37,8 +38,16 @@ _ASSET_EXT = {
     "image/png": "png",
     "image/jpeg": "jpg",
     "image/webp": "webp",
+    "image/svg+xml": "svg",
     "video/mp4": "mp4",
 }
+
+_SVG_DIM_RE = re.compile(r'<svg[^>]*\bwidth\s*=\s*["\']([0-9.]+)', re.IGNORECASE)
+_SVG_HEIGHT_RE = re.compile(r'<svg[^>]*\bheight\s*=\s*["\']([0-9.]+)', re.IGNORECASE)
+_SVG_VIEWBOX_RE = re.compile(
+    r'<svg[^>]*\bviewBox\s*=\s*["\']\s*[-0-9.]+[\s,]+[-0-9.]+[\s,]+([0-9.]+)[\s,]+([0-9.]+)',
+    re.IGNORECASE,
+)
 
 
 def sniff_media(data: bytes) -> Optional[str]:
@@ -53,11 +62,29 @@ def sniff_media(data: bytes) -> Optional[str]:
         return "image/webp"
     if data[4:8] == b"ftyp":
         return "video/mp4"
+    head = data[:4096].lstrip()
+    if head.startswith(b"<svg") or (head.startswith(b"<?xml") and b"<svg" in head):
+        # D-P0-01: rendered Mermaid diagrams land as SVG assets.
+        return "image/svg+xml"
     return None
 
 
-def image_dimensions(data: bytes) -> tuple[int, int]:
+def _svg_dimensions(data: bytes) -> tuple[int, int]:
+    text = data.decode("utf-8", errors="replace")[:8192]
+    width = _SVG_DIM_RE.search(text)
+    height = _SVG_HEIGHT_RE.search(text)
+    if width and height:
+        return int(float(width.group(1))), int(float(height.group(1)))
+    viewbox = _SVG_VIEWBOX_RE.search(text)
+    if viewbox:
+        return int(float(viewbox.group(1))), int(float(viewbox.group(2)))
+    return 0, 0
+
+
+def image_dimensions(data: bytes, media_type: str = "") -> tuple[int, int]:
     """解码取真实宽高（sharp 的 PIL 等价物）；失败返回 (0, 0)。"""
+    if media_type == "image/svg+xml":
+        return _svg_dimensions(data)
     try:
         import io
 
@@ -81,7 +108,7 @@ def validate_asset_bytes(data: bytes, declared_mime: str) -> str:
         if not declared_mime.startswith(sniffed.split("/")[0] + "/"):
             raise ValueError(f"资产类型声明 {declared_mime!r} 与实测 {sniffed!r} 不符")
     if sniffed.startswith("image/"):
-        w, h = image_dimensions(data)
+        w, h = image_dimensions(data, sniffed)
         if max(w, h) > MAX_IMAGE_DIMENSION:
             raise ValueError(f"图像边长超过 {MAX_IMAGE_DIMENSION}px 上限")
     return sniffed

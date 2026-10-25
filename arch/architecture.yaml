@@ -150,8 +150,8 @@ modules:
     owner: plugin-authors
     allowed_deps: [K, X]
     forbidden_deps: [G, P]
-    note: "M0 agent-native 能力面：capability registry + executor + 跨进程 canvas store + 单工具入口"
-    reason: "新增产品能力扩展（插件形态、可单独禁用）；只依赖 stdlib 与 hermes_constants(K)，不反向依赖 G/P，故归 X 而非 G。"
+    note: "M1 agent-native 能力面：registry + executor + canvas store + 单工具入口 + 生成/导出；含 1 条已记账的懒加载 G 边（凭据解析）"
+    reason: "产品能力扩展（插件形态、可单独禁用）。M1 起有一个延迟 import（hermes_cli.gugu_service.gateway_credentials）复用桌面已登录网关，凭据只在调用瞬间解析、不落盘；该 X->G 边已作为 +1 记账进 baseline，其余仍为 stdlib + hermes_constants(K)。"
 
   - id: plugins
     paths: ["plugins/**"]

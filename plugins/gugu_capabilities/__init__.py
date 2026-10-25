@@ -6,11 +6,14 @@ capability by id, so adding a capability never grows the core tool schema paid
 for on every API call. Handlers live in ``executor.py``; the contract and UI
 anchors live in ``registry.py``.
 
-Agent-callable today (M0): ``list_capabilities`` / ``read_state`` /
-``place_on_canvas`` / ``update_artifact`` / ``undo``.
-Registered but deliberately deferred: ``navigate`` (M1), ``generate_diagram`` /
-``generate_image`` (M1), ``highlight`` / ``clear_guidance`` (M2). Those return
-``not_implemented`` — M0 never fakes a generation or a guidance overlay.
+Agent-callable today (M1): ``list_capabilities`` / ``read_state`` /
+``generate_diagram`` (Mermaid canonical -> SVG, with outline/text fallback) /
+``generate_image`` (primary -> fallback -> explicit mock) / ``place_on_canvas`` /
+``update_artifact`` (including one-sentence in-place regeneration) /
+``export_canvas`` / ``undo``.
+Registered but deliberately deferred: ``navigate`` (M1 routing slice) and
+``highlight`` / ``clear_guidance`` (M2). Those return ``not_implemented`` — this
+plugin never fakes a generation or a guidance overlay.
 """
 
 from __future__ import annotations
@@ -32,8 +35,9 @@ SCHEMA: Dict[str, Any] = {
         "咕咕 agent-native 能力入口（单工具、按 capability 分派）。"
         "先 capability='list_capabilities' 枚举能力与参数 schema，再 capability='read_state' "
         "读取当前界面/项目/画布/选择。画布写入用 place_on_canvas / update_artifact（原地替换）/ undo。"
-        "需要审批的能力返回 approval_required；M0 的 navigate/generate_diagram/generate_image/"
-        "highlight/clear_guidance 返回 not_implemented（分别在 M1/M2 实现）。"
+        "生成用 generate_diagram（Mermaid→SVG，失败降级 outline/文本）与 generate_image"
+        "（主/备/显式 mock，mock=true 时不得当作真实生成）。导出用 export_canvas。"
+        "需要审批的能力返回 approval_required；navigate/highlight/clear_guidance 仍为 planned。"
         "不要用本工具伪造生成结果。"
     ),
     "parameters": {
@@ -78,6 +82,6 @@ def register(ctx: Any) -> None:
         schema=SCHEMA,
         handler=handle_capability,
         check_fn=lambda: True,
-        description="咕咕 agent-native 能力入口（能力清单/状态/画布读写/undo）",
+        description="咕咕 agent-native 能力入口（能力清单/状态/生成/画布读写/原地修正/导出/undo）",
         emoji="🧩",
     )

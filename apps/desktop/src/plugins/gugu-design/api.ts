@@ -167,3 +167,30 @@ export async function publishAgentState(state: AgentState): Promise<void> {
     // not fatal. The next successful publish replaces it.
   }
 }
+
+export interface CanvasExport {
+  bytes: number
+  data: string
+  filename: string
+  revision: number
+  sha256: string
+}
+
+/** M1 export: the backend builds one self-contained zip; the renderer just hands
+ *  it to the user's download flow. The rest门 returns JSON, so the zip travels
+ *  base64 — same channel as asset fetches. */
+export async function exportCanvas(pid: string): Promise<CanvasExport> {
+  return need<CanvasExport>(`/projects/${pid}/export`, { method: 'POST', timeoutMs: 120_000 })
+}
+
+export function downloadCanvasExport(result: CanvasExport): void {
+  const bytes = Uint8Array.from(atob(result.data), char => char.charCodeAt(0))
+  const blob = new Blob([bytes], { type: 'application/zip' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+
+  anchor.download = result.filename
+  anchor.href = url
+  anchor.click()
+  URL.revokeObjectURL(url)
+}

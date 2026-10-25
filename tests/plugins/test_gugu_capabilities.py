@@ -1,7 +1,7 @@
 """M0 capability contract tests — real file I/O, no mocked executor.
 
 Coverage:
-- registry meta-schema (10 ids, all seven required fields, examples conform);
+- registry meta-schema (11 ids, all seven required fields, examples conform);
 - ``list_capabilities`` and ``read_state`` executed end-to-end against a temp
   ``HERMES_HOME`` + a real ``designs/<pid>/project.json``;
 - ``place_on_canvas`` idempotency (natural element id + operation_id replay),
@@ -106,7 +106,7 @@ def _place(project: Dict[str, Any], **overrides: Any) -> Dict[str, Any]:
 
 
 def test_registry_contract_is_complete_and_valid():
-    assert len(registry.CAPABILITIES) == 10
+    assert len(registry.CAPABILITIES) == 11
     assert registry.validate_registry() == []
 
     for capability in registry.list_capabilities():
@@ -153,7 +153,7 @@ def test_list_capabilities_executes(project):
     result = executor.execute("list_capabilities", {})
     assert result["ok"] is True
     assert result["data"]["schema_version"] == registry.SCHEMA_VERSION
-    assert len(result["data"]["capabilities"]) == 10
+    assert len(result["data"]["capabilities"]) == 11
 
 
 def test_read_state_reads_surface_project_canvas_and_selection(project):
@@ -324,16 +324,20 @@ def test_update_artifact_patches_geometry_in_place(project):
     assert len(_read_doc(project)["elements"]) == 1
 
 
-def test_update_artifact_instruction_only_is_explicitly_deferred(project):
+def test_update_artifact_instruction_needs_a_working_generation_rung(project, monkeypatch):
     placed = _place(project)
     element_id = placed["data"]["element"]["id"]
+    for name in ("GUGU_IMAGE_BASE_URL", "GUGU_IMAGE_API_KEY", "OPENAI_BASE_URL", "OPENAI_API_KEY", "GUGU_ALLOW_MOCK_IMAGES"):
+        monkeypatch.delenv(name, raising=False)
     result = executor.execute(
         "update_artifact",
         {"project_id": project["pid"], "element_id": element_id, "instruction": "warmer"},
     )
+    # M1 wires instruction to the generation ladder; with no gateway and no mock
+    # consent it must fail honestly instead of returning the old asset.
     assert result["ok"] is False
-    assert result["error"]["code"] == "generation_required"
-    assert "M1" in result["error"]["message"]
+    assert result["error"]["code"] == "generation_failed"
+    assert len(result["error"]["details"]["attempts"]) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -379,15 +383,22 @@ def test_undo_preserves_jobs_owned_by_the_host(project):
 # ---------------------------------------------------------------------------
 
 
-def test_generate_capability_requires_approval_before_any_work(project):
+def test_generate_capability_requires_approval_before_any_work(project, monkeypatch):
     result = executor.execute("generate_image", {"prompt": "a warm diagram"})
     assert result["ok"] is False
     assert result["error"]["code"] == "approval_required"
 
-    approved_but_planned = executor.execute("generate_image", {"prompt": "a warm diagram"}, approved=True)
-    assert approved_but_planned["ok"] is False
-    assert approved_but_planned["error"]["code"] == "not_implemented"
-    assert approved_but_planned["error"]["details"]["milestone"] == "M1"
+    # Approved but with no gateway and no mock consent: it must fail honestly,
+    # never return a plausible-looking fake image.
+    for name in ("GUGU_IMAGE_BASE_URL", "GUGU_IMAGE_API_KEY", "OPENAI_BASE_URL", "OPENAI_API_KEY", "GUGU_ALLOW_MOCK_IMAGES"):
+        monkeypatch.delenv(name, raising=False)
+    failed = executor.execute(
+        "generate_image",
+        {"prompt": "a warm diagram", "project_id": project["pid"]},
+        approved=True,
+    )
+    assert failed["ok"] is False
+    assert failed["error"]["code"] == "generation_failed"
 
 
 def test_planned_capabilities_never_pretend_to_work(project):
@@ -395,7 +406,6 @@ def test_planned_capabilities_never_pretend_to_work(project):
         ("navigate", {"screen": "design"}),
         ("highlight", {"target_anchor": "design.canvas"}),
         ("clear_guidance", {}),
-        ("generate_diagram", {"source": "README.md"}),
     ):
         result = executor.execute(capability, arguments, approved=True)
         assert result["ok"] is False, capability
@@ -447,7 +457,7 @@ def test_plugin_registers_one_tool_and_handler_runs(project):
 
     payload = json.loads(tool["handler"]({"capability": "list_capabilities", "arguments": {}}))
     assert payload["ok"] is True
-    assert len(payload["data"]["capabilities"]) == 10
+    assert len(payload["data"]["capabilities"]) == 11
 
 
 def test_real_plugin_loader_loads_the_plugin(project):

@@ -42,6 +42,10 @@ export interface DesignAsset {
   name: string
   versionId?: string
   width: number
+  /** M1 generation provenance (optional so older documents stay valid). */
+  model?: string
+  mock?: boolean
+  prompt?: string
 }
 
 /** 画布上的一个呈现节点（指向一个 asset/version）。 */
@@ -50,6 +54,8 @@ export interface CanvasElement {
   height: number
   hidden: boolean
   id: string
+  /** M1 label shown under the element; optional for pre-M1 documents. */
+  label?: string
   locked: boolean
   rotation: number
   type: 'image' | 'video'
