@@ -15,8 +15,9 @@ schema cannot express:
 * the three version lines and ``upstream_tag`` equal the files inside the zip;
 * ``lockfiles`` equal the zip members;
 * ``git_tree`` is rebuilt from the zip members (excluding the synthetic
-  ``FILES.sha256``) and compared; with ``--repo`` the commit->tree mapping is
-  verified with git too;
+  ``FILES.sha256``) with git itself -- extract, ``git add``, ``git write-tree``
+  -- so ``.gitattributes`` (e.g. ``*.ps1 eol=crlf``) is applied exactly as the
+  B-side command; with ``--repo`` the commit->tree mapping is verified too;
 * ``--build-receipt`` re-hashes the build receipt;
 * ``dirty`` is ``false`` (schema const) and non-``real`` provenance carries a
   ``fixture_reason`` (gate semantics, because the schema subset has no if/then).
@@ -41,6 +42,7 @@ import re
 import stat
 import subprocess
 import sys
+import tempfile
 import tomllib
 import zipfile
 from dataclasses import dataclass, field
@@ -188,6 +190,8 @@ def _entry_problem(name: str) -> str | None:
         return "empty zip entry name"
     if "\x00" in name:
         return f"zip entry contains NUL: {name!r}"
+    if any(ord(char) < 32 for char in name):
+        return f"zip entry contains control characters: {name!r}"
     if name.startswith(("/", "\\")):
         return f"zip entry is absolute: {name!r}"
     if "\\" in name:
@@ -401,6 +405,85 @@ def _check_lockfiles(
             )
 
 
+def _run_git(repo: Path, *args: str) -> str:
+    """Run git with CRLF conversion off; explicit ``.gitattributes`` still apply."""
+    command = [
+        "git",
+        "-C",
+        str(repo),
+        "-c",
+        "core.autocrlf=false",
+        "-c",
+        "core.safecrlf=false",
+        *args,
+    ]
+    try:
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    except OSError as exc:
+        raise ContractError(
+            "git is required to verify git_tree; install git or pass --no-verify-git-tree"
+        ) from exc
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout).strip()
+        raise ContractError(f"git {' '.join(args)} failed: {detail}")
+    return completed.stdout.strip()
+
+
+def rebuild_tree_with_git(
+    archive: zipfile.ZipFile,
+    members: dict[str, zipfile.ZipInfo],
+) -> str:
+    """Rebuild ``git write-tree`` from the zip, with git applying ``.gitattributes``.
+
+    Hashing the raw zip bytes is wrong for this repo: ``git archive`` applies
+    ``*.ps1 text eol=crlf`` (and other attributes), so the bytes inside the zip
+    are not the blob bytes in the commit tree.  Extracting and letting git
+    normalize is exactly the B-side command documented in the contract.
+    """
+    with tempfile.TemporaryDirectory(prefix="gugu-artifact-tree-") as tmp:
+        root = Path(tmp)
+        symlinks: list[tuple[Path, bytes]] = []
+        for name, info in members.items():
+            if name == FILES_MANIFEST:
+                continue
+            try:
+                payload = _read_member(archive, name)
+            except ContractError as exc:
+                raise ContractError(str(exc)) from exc
+            target = root / name
+            try:
+                target.parent.mkdir(parents=True, exist_ok=True)
+            except OSError as exc:
+                raise ContractError(f"git_tree: cannot create {target.parent}: {exc}") from exc
+            mode = _git_mode(info)
+            if mode == 0o120000:
+                symlinks.append((target, payload))
+                continue
+            try:
+                target.write_bytes(payload)
+            except OSError as exc:
+                raise ContractError(f"git_tree: cannot write {target}: {exc}") from exc
+            if mode == 0o100755:
+                target.chmod(0o755)
+
+        # Symlinks last so no earlier member can be written through one.
+        for target, payload in symlinks:
+            if target.exists() or target.is_symlink():
+                raise ContractError(f"git_tree: path collision at {target}")
+            try:
+                link = payload.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise ContractError(f"git_tree: symlink target is not UTF-8: {exc}") from exc
+            try:
+                target.symlink_to(link)
+            except OSError as exc:
+                raise ContractError(f"git_tree: cannot create symlink {target}: {exc}") from exc
+
+        _run_git(root, "init", "-q")
+        _run_git(root, "add", "-A", "-f")
+        return _run_git(root, "write-tree")
+
+
 def _check_tree(
     archive: zipfile.ZipFile,
     members: dict[str, zipfile.ZipInfo],
@@ -410,19 +493,10 @@ def _check_tree(
     declared = manifest.get("git_tree")
     if not isinstance(declared, str):
         return  # schema already reported it
-    files: dict[str, tuple[int, bytes]] = {}
-    for name, info in members.items():
-        if name == FILES_MANIFEST:
-            continue
-        try:
-            files[name] = (_git_mode(info), _read_member(archive, name))
-        except ContractError as exc:
-            problems.append(f"git_tree: {exc}")
-            return
     try:
-        actual = git_tree_digest(files)
-    except ValueError as exc:
-        problems.append(f"git_tree: cannot rebuild tree: {exc}")
+        actual = rebuild_tree_with_git(archive, members)
+    except ContractError as exc:
+        problems.append(f"git_tree: {exc}")
         return
     if actual != declared:
         problems.append(

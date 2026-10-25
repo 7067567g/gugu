@@ -103,10 +103,14 @@ A 侧（或 B 侧有完整 checkout 时）还可验证 commit→tree：
 git rev-parse "<commit>^{tree}"   # 必须等于 manifest.git_tree
 ```
 
-`artifact_check.py` 直接对 zip 重建 git tree（不落盘），规则：
-普通文件 mode `100644`；可执行 `100755`；symlink `120000`；目录条目忽略；
-排序按 git 的 tree 排序（目录名视作带 `/`）。仓库当前 `git ls-files -s` 全为
-`100644`，但 checker 仍支持后两种 mode。
+`artifact_check.py` 把 zip 解到临时目录后调用
+`git -c core.autocrlf=false add -A -f` + `git write-tree`（`.gitattributes` 仍生效），
+与上面的 B 侧命令逐字一致；**不能**用 raw zip 字节自算树，因为 `git archive` 会对
+`*.ps1` 应用 `eol=crlf`，而 commit 的 blob 是 LF。规则：
+普通文件 mode `100644`；可执行 `100755`；symlink `120000`（最后创建，避免写穿）；
+目录条目忽略；`FILES.sha256` 排除。仓库当前 `git ls-files -s` 全为 `100644`，
+但 checker 仍支持后两种 mode。`git` 缺失时 `git_tree` 检查报错误（可显式
+`--no-verify-git-tree` 跳过，但不得用于 PASS）。
 
 ## 5. 三版本 / tag 的字节绑定
 

@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -243,3 +244,60 @@ def test_git_tree_digest_matches_git_mktree(tmp_path: Path) -> None:
             "sub/file.txt": (0o100644, b"x\n"),
         }
     ) == root_tree
+
+
+def test_git_tree_rebuild_applies_gitattributes_eol(tmp_path: Path) -> None:
+    """``git archive`` writes CRLF for ``*.ps1``; the commit tree has LF.
+
+    Hashing raw zip bytes would therefore misjudge a real artifact.  The
+    checker extracts and lets git normalize (exactly the B-side command).
+    """
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / ".gitattributes").write_text("*.ps1 text eol=crlf\n", encoding="utf-8")
+    (source / "GUGU_VERSION").write_text("0.9.0\n", encoding="utf-8")
+    (source / "a.ps1").write_text("line1\nline2\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(source), "init", "-q"], check=True)
+    subprocess.run(["git", "-C", str(source), "add", "-A"], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(source),
+            "-c",
+            "user.name=fixture",
+            "-c",
+            "user.email=fixture@example.invalid",
+            "commit",
+            "-qm",
+            "crlf",
+        ],
+        check=True,
+    )
+    tree = subprocess.run(
+        ["git", "-C", str(source), "rev-parse", "HEAD^{tree}"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+    archive_path = tmp_path / "crlf.zip"
+    fixture_builder._write_zip(
+        archive_path,
+        {
+            ".gitattributes": b"*.ps1 text eol=crlf\n",
+            "GUGU_VERSION": b"0.9.0\n",
+            "a.ps1": b"line1\r\nline2\r\n",  # what git archive emits
+        },
+    )
+    with zipfile.ZipFile(archive_path) as archive:
+        members = {info.filename: info for info in archive.infolist()}
+        assert artifact_check.rebuild_tree_with_git(archive, members) == tree
+    raw_tree = artifact_check.git_tree_digest(
+        {
+            ".gitattributes": (0o100644, b"*.ps1 text eol=crlf\n"),
+            "GUGU_VERSION": (0o100644, b"0.9.0\n"),
+            "a.ps1": (0o100644, b"line1\r\nline2\r\n"),
+        }
+    )
+    assert raw_tree != tree
