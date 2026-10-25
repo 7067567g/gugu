@@ -1,9 +1,12 @@
-# 05 · Agent capabilities（P0 M0 骨架）
+# 05 · Agent capabilities（P0）
 
-> 状态：M1（2026-10-25）。M0 的契约 + 最小读写之上，M1 接入真实生成（Mermaid→SVG /
-> 主备模型→显式 mock）、原地修正与导出；引导层仍在 M2。
+> 状态：M3 / P0 收口（2026-10-25）。M0 契约 + 最小读写；M1 真实生成（Mermaid→SVG /
+> 主备模型→显式 mock）、原地修正与导出；M2 引导层（`highlight` / `clear_guidance`）与
+> 零残留；M3 自用 dogfood + 文档/版本收口。`navigate` 仍是 `planned`，跨进程通道不在
+> P0 已交付范围。
 > 代码事实源：`plugins/gugu_capabilities/registry.py`（能力/锚点）、`executor.py`（执行）、
-> `store.py`（画布/资产）、`diagram.py` / `images.py` / `export.py`（M1）。
+> `store.py`（画布/资产）、`diagram.py` / `images.py` / `export.py`（M1）、
+> `apps/desktop/src/plugins/gugu-design/guidance.ts`（M2）。
 > 本文不重复 schema 细节，只解释边界与取舍。
 
 ## 1. 一个 AI 输入框
@@ -14,7 +17,7 @@
   - `/design` 工程列表（没有 composer）→ 先回 `/` 再聚焦核心 Chat composer；
   - 其它界面 → 直接聚焦核心 Chat composer。
 - 决策是纯函数 `agent-entry.ts::planAiEntry`，快捷键与命令面板共用；单测覆盖 fallback。
-- 这是 M0 的入口；M1 的 hero flow 会在这个输入框里接 plan strip 与能力编排。
+- 这是 M0 的入口；M1 的 hero flow 复用同一输入框/工具通道，plan strip 仍是 backlog。
 
 ## 2. capability registry（11 个）
 
@@ -24,15 +27,15 @@ side_effects / requires_approval / ui_anchors / examples`，外加 `status` 与 
 
 | 能力 | 状态 | 审批 | 本轮行为 |
 | --- | --- | --- | --- |
-| `navigate(screen)` | planned (M1) | 否 | 契约登记；跨进程导航通道 M1 做 |
+| `navigate(screen)` | planned (M1 剩余) | 否 | 契约登记；跨进程导航通道未交付，P0 后 backlog |
 | `read_state(scope)` | ready | 否 | 读 surface / project / canvas / selection |
 | `list_capabilities()` | ready | 否 | 返回完整 registry |
 | `generate_diagram(source)` | ready (M1) | 是 | repo/README/outline → Mermaid canonical → SVG asset；失败 outline SVG → 文本大纲 |
 | `generate_image(prompt, refs)` | ready (M1) | 是 | 主 qwen-image-2.0 → 备 gpt-image-2-medium → 非生产显式 mock；模型名走 env |
 | `place_on_canvas(artifact, position)` | ready | 否 | 落一个已有 asset；同 key 幂等 |
 | `update_artifact(id, …)` | ready | 否 | 原地替换 asset/几何，不新增副本 |
-| `highlight(target, text)` | planned (M2) | 否 | 引导层 M2；本轮不渲染 overlay |
-| `clear_guidance()` | planned (M2) | 否 | 零残留契约 M2 |
+| `highlight(target, text)` | ready (M2) | 否 | 写 guidance 邮箱；`/design` 渲染 overlay，7 个中断源零残留 |
+| `clear_guidance()` | ready (M2) | 否 | 删除邮箱并幂等；本地中断 best-effort DELETE |
 | `undo()` | ready | 否 | 画布快照栈（最多 10 步） |
 | `export_canvas(project_id)` | ready (M1) | 否 | 自包含 zip：project.json + assets + preview.svg + manifest 校验和 |
 
@@ -62,9 +65,9 @@ invalid_position / internal_error`。
   一个工具而不是十个，避免每次 API 调用都为 10 份 schema 付费。
 - 工具 handler 只做 JSON 信封，所有校验/副作用在 `executor.execute()`。
 
-已知边界（M1）：工具当前随 bundled 插件常驻；远端 backend 上它读写的是**该 backend 的**
-`HERMES_HOME/designs`，不是桌面客户端的文件。M1 需要按 session source（`desktop`）收口到
-`desktop_ui` 一类的 session-scoped toolset，并改走 host RPC/WS。
+已知边界（P0 收口）：工具当前随 bundled 插件常驻；远端 backend 上它读写的是**该 backend 的**
+`HERMES_HOME/designs`，不是桌面客户端的文件。P0 未完成按 session source（`desktop`）收口到
+`desktop_ui` 一类的 session-scoped toolset，也未改走 host RPC/WS；列入 P0 后 backlog。
 
 ## 4. 画布最小读写
 
@@ -74,13 +77,13 @@ invalid_position / internal_error`。
 - **跨进程串行**：dashboard 的 `threading.Lock` 只在本进程有效；capability 在
   `<project>/agent.lock` 上用 `fcntl.flock` 串行 **agent 自己的**读改写，temp+rename 原子写。
   dashboard 的保存**不参与**这把锁，靠 `revision` 乐观锁兜底（agent 写后 dashboard 保存会 409 →
-  重拉权威文档）。M1 把 agent 写入收到 host RPC 才能彻底消除这条竞争。
+  重拉权威文档）。P0 仍未把 agent 写入收到 host RPC；这是 P0 后最高优先的 backlog。
 - **放置幂等**：元素 id 由 `element_id` 或 `artifact.key` 的 sha256 派生；同一 key 再放置
   直接返回已有元素（`created:false, idempotent:true`）。显式 `operation_id` 命中
   `agent-ops.json` 时连 revision 都不再 bump。
 - **原地替换**：`update_artifact` 只改同一 `element_id` 的 `assetId/versionId/type/几何`，
   元素数量不变；目标状态与现状一致时返回 `idempotent:true` 且不写盘。
-  `instruction` 单独出现返回 `generation_required`（真实重生成是 M1）。
+  `instruction` 单独出现时 M1 起走真实重生成（主/备/mock 阶梯），只替换同一元素。
 - **undo**：每次写前把画布四字段快照进 `agent-undo.json`（上限 10），undo 只合并回画布字段，
   不覆盖 Host 的 `jobs/comments`。
 - **活动日志**：`agent-activity.ndjson` 追加 `{ts, capability, revision, detail}`。
@@ -88,8 +91,8 @@ invalid_position / internal_error`。
 ### 跨进程可见性（已知缺口）
 
 agent 直写 `project.json` 不会触发 dashboard 的 `/events` WS 广播。M0 的渲染端在下次保存
-（409 → 重新拉取）或重新进入工程时看到 Agent 的改动。M1 应把 agent 写入改到 host RPC/WS
-（或由 dashboard 监听文件并广播），本条已写入 `VERDICT` 的下一轮建议。
+（409 → 重新拉取）或重新进入工程时看到 Agent 的改动。P0 收口时仍未改成 host RPC/WS
+（或由 dashboard 监听文件并广播）；列入 P0 后 backlog。
 
 ## 5. 状态读取
 
@@ -117,7 +120,7 @@ agent 直写 `project.json` 不会触发 dashboard 的 `/events` WS 广播。M0 
 锚点统一 `data-agent-id="{surface}.{element}"`，在 `registry.py::ANCHORS` 登记
 `present|planned`。`ready` 能力只能引用 `present` 锚点（测试强制）。
 
-M0 实际落到桌面的锚点：
+P0 实际落到桌面的锚点：
 
 `design.projects` / `design.projects.name` / `design.projects.create` /
 `design.workspace` / `design.canvas` / `design.canvas.undo` / `design.canvas.redo` /
@@ -148,6 +151,8 @@ M2 起 `list_capabilities` 的返回信封多一个 `anchors` 字段，Agent 可
 .venv/bin/python -m pytest tests/plugins/test_gugu_agent_state_api.py -q -x --timeout=600
 # 引导层：锚点枚举 + 邮箱 + 端点（13）
 .venv/bin/python -m pytest tests/plugins/test_gugu_guidance.py -q -x --timeout=600
+# P0 文档门禁：本表状态必须与 registry 一致
+.venv/bin/python -m pytest tests/plugins/test_gugu_p0_docs_contract.py -q -x --timeout=600
 # 桌面（纯函数 + 零残留 DOM 契约）
 cd apps/desktop && npx vitest run --project ui src/plugins/gugu-design
 # arch
@@ -160,11 +165,14 @@ cd apps/desktop && npx vitest run --project ui src/plugins/gugu-design
 审批与 planned 不伪装；插件工具注册与 handler 执行；M2 锚点枚举、highlight 邮箱、
 clear 幂等、7 个中断源的零残留。
 
-## 8. 下一轮接口
+## 8. 下一阶段接口
 
-- M1 剩余：`navigate` 跨进程通道；agent 写入走 host RPC/WS（实时可见）；session-scoped
-  toolset 收口；plan strip。
+- **M3 已交付**：P0 自用 dogfood（自动化路径，图片显式 mock）+ 文档收口 + `GUGU_VERSION`
+  `0.9.0` + P0 CLOSEOUT/backlog。P0 §8 的 7 个可自动化验收项有证据；第 8 项 owner 真实
+  任务未由 headless 进程完成，见 `runs/gugu-p0-m3-dogfood/reports/P0-CLOSEOUT.md`。
+- **P0 未交付（backlog，非本轮范围）**：`navigate` 跨进程通道；agent 写入走 host RPC/WS
+  （实时可见）；session-scoped toolset 收口；plan strip；多步引导；锚点漂移自动检测；
+  Electron 真窗口视觉回归；真实网关实测。优先级见 `NEXT-BACKLOG.md`。
 - M1 已交付：`generate_*` 真实实现 + 审批、原地修正、导出、hero flow E2E（见 `docs/06-hero-flow.md`）。
 - M2 已交付：`highlight/clear_guidance` ready；锚点表复用并可由 `list_capabilities.anchors`
   枚举；`/design` 消费引导邮箱；零残留按 7 个中断源自动测试（见 `docs/07-guidance.md`）。
-- M2 剩余：host RPC/WS 取代 1.2s 轮询；多步 step 队列；Python↔TS 锚点漂移自动检测。

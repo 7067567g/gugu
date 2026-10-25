@@ -1,6 +1,8 @@
-# 06 · Hero flow B（M1，无引导层）
+# 06 · Hero flow B（P0）
 
-> 状态：M1（2026-10-25）。契约：`gugu-p0-pipeline/ROUND-SPEC.md`；
+> 状态：M3 / P0 收口（2026-10-25）。Hero flow 本身在 M1 交付；M2 在其上加了引导层
+> （见 `docs/07-guidance.md`）；M3 完成自用 dogfood（自动化路径、图片显式 mock）与收口。
+> 契约：`gugu-p0-pipeline/ROUND-SPEC.md`；
 > 决策：`gugu-p0-pipeline/DECISIONS.md` D-P0-01 / D-P0-02。
 > 代码：`plugins/gugu_capabilities/{diagram,images,export,hero_flow}.py` +
 > `registry.py` / `executor.py` / `store.py`。
@@ -86,12 +88,20 @@ HERMES_HOME=$(mktemp -d) GUGU_ALLOW_MOCK_IMAGES=1 \
 ```
 
 离线/CI 无网关时 3 张配图走显式 mock；有网关时同一命令走主/备模型，其余步骤不变。
-本轮实测见 `runs/gugu-p0-m1-hero/reports/hero-e2e.json` 与 `M1-report.md`。
+M1 实测见 `runs/gugu-p0-m1-hero/reports/hero-e2e.json` 与 `M1-report.md`；
+M3 自用 dogfood 见 `runs/gugu-p0-m3-dogfood/reports/dogfood/`（同一命令，图片显式 mock）。
+
+> **不要把 mock 耗时当真实创作耗时**：`time_to_first_artifact_sec` 在 mock 下只证明链路与
+> 计时器可用；真实模型延迟、主备切换和失败率需要在有登录凭据的桌面 dogfood 中测。
+> `human_interventions` 目前是 `hero_flow.py` 的常量 0，不是现场计数（见
+> `docs/09-known-limitations.md`）。
 
 ## 6. 明确不做 / 已知缺口
 
-- 不做 M2 引导层（`highlight/clear_guidance` 保持 `planned`）。
-- 不实现 `navigate` 真实路由（`planned`；M1 的另一片）。
+- 引导层在 M2 已交付（`highlight/clear_guidance` 均为 `ready`，见 `docs/07-guidance.md`）；
+  hero flow 本身**不强制**显示引导，引导由 Agent 另行调用。
+- 不实现 `navigate` 真实路由（`planned`；P0 未交付，列入 backlog）。
 - Mermaid 子集渲染器不追求 mermaid.js 全语法；遇到不支持语法会按契约降级，而不是假渲染。
 - agent 写入仍不触发 dashboard `/events`（M0 已知），实时可见/session-scoped toolset 留给后续。
-- Windows / Code / 视频 / 故事板不在 P0 M1 范围。
+- `human_interventions` 是常量 0；owner 真实任务与真实模型延迟尚未实测。
+- Windows / Code / 视频 / 故事板不在 P0 范围。
