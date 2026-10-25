@@ -161,7 +161,7 @@ unzip -q artifact.zip -d "$DEST"
 ## 10. 如何复核本冻结
 
 ```bash
-cd /home/a7067567g/下载/deepseek/60-外部仓库/gugu-work
+cd /path/to/gugu-work
 export PYTHONDONTWRITEBYTECODE=1
 
 .venv/bin/python -m pytest prodline/tests/fixtures/artifact -q

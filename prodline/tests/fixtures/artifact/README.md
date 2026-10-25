@@ -48,7 +48,7 @@ fixture without reason, missing runner key, bad producer/schema, self-listing.
 ## Run
 
 ```bash
-cd /home/a7067567g/下载/deepseek/60-外部仓库/gugu-work
+cd /path/to/gugu-work
 .venv/bin/python -m pytest prodline/tests/fixtures/artifact -q
 .venv/bin/python -m pytest prodline/tests -q
 ```
