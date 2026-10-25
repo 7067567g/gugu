@@ -1,6 +1,7 @@
 /** gugu-design 数据层：ctx.rest 命名空间门 + React Query。 */
 import { useMutation, useQuery, useQueryClient } from '@hermes/plugin-sdk'
 
+import type { AgentState } from './agent-state'
 import { designController } from './controller'
 import type { CanvasDocument, DesignAsset, DesignJob, ProjectSummary } from './types'
 
@@ -152,5 +153,17 @@ export async function ingestCompletedJobs(pid: string, jobs: DesignJob[], known:
 
     const { document } = await need<{ document: CanvasDocument }>(`/projects/${pid}`)
     designController.ingestJob(document.jobs[job.id] ?? job, document.assets, true)
+  }
+}
+
+/** Best-effort surface/selection publication for capability read_state.
+ *  The canvas document stays Host-authoritative; this is a cache the agent
+ *  reads, so a failed write must never block or toast the canvas. */
+export async function publishAgentState(state: AgentState): Promise<void> {
+  try {
+    await need('/agent-state', { body: state, method: 'PUT', timeoutMs: 4000 })
+  } catch {
+    // Backend not ready / remote route without the plugin API: state is stale,
+    // not fatal. The next successful publish replaces it.
   }
 }

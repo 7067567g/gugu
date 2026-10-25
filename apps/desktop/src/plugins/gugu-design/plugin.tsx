@@ -6,20 +6,58 @@
  */
 import type {
   HermesPlugin,
+  KeybindContribution,
   PaletteContribution,
   RouteContribution,
   SidebarNavContribution
 } from '@hermes/plugin-sdk'
 import {
   host,
+  KEYBINDS_AREA,
   PALETTE_AREA,
   ROUTES_AREA,
   SIDEBAR_NAV_AREA
 } from '@hermes/plugin-sdk'
 
-import { bindApi } from './api'
-import { bindController } from './controller'
+import { runAiEntry } from './agent-entry'
+import { buildAgentState } from './agent-state'
+import { bindApi, publishAgentState } from './api'
+import { $designView, bindController } from './controller'
+import { t } from './i18n'
 import { DesignPage } from './page'
+
+/** Focus the EXISTING design composer (the GeneratePanel textarea), not a new chat box. */
+function focusDesignComposer(): boolean {
+  const field = document.querySelector<HTMLTextAreaElement>('[data-agent-id="design.composer"]')
+
+  if (!field) {
+    return false
+  }
+
+  field.focus()
+
+  return true
+}
+
+/** One shortcut / one palette row reaches an AI input from any surface. */
+function openAiEntry(): void {
+  runAiEntry({
+    hash: () => window.location.hash,
+    hasDocument: () => Boolean($designView.get().document),
+    navigate: path => host.navigate(path),
+    focusDesignComposer,
+    focusGlobalComposer: () => {
+      // The chat surface only exists outside /design. If the design composer is
+      // not mounted (gateway not configured / project switching), land on work.
+      if (window.location.hash.startsWith('#/design')) {
+        host.navigate('/')
+      }
+      // The chat surface mounts asynchronously after the fallback navigation.
+      host.composer.focus()
+      window.setTimeout(() => host.composer.focus(), 250)
+    }
+  })
+}
 
 const plugin: HermesPlugin = {
   id: 'gugu-design',
@@ -29,6 +67,34 @@ const plugin: HermesPlugin = {
   register(ctx) {
     bindApi(ctx.rest)
     bindController(ctx.rest)
+
+    // Publish "what is the user looking at / selecting" for capability read_state.
+    // Best-effort cache (last writer wins); a failed PUT never blocks the canvas.
+    let publishTimer: ReturnType<typeof setTimeout> | null = null
+    const schedulePublish = () => {
+      if (publishTimer !== null) {
+        clearTimeout(publishTimer)
+      }
+
+      publishTimer = setTimeout(() => {
+        publishTimer = null
+        const view = $designView.get()
+
+        void publishAgentState(
+          buildAgentState({ hash: window.location.hash, pid: view.pid, selection: view.selectedIds })
+        )
+      }, 200)
+    }
+
+    const unsubscribe = $designView.subscribe(schedulePublish)
+    window.addEventListener('hashchange', schedulePublish)
+    ctx.onDispose(() => {
+      unsubscribe()
+      window.removeEventListener('hashchange', schedulePublish)
+      if (publishTimer !== null) {
+        clearTimeout(publishTimer)
+      }
+    })
 
     ctx.registerMany([
       {
@@ -52,6 +118,28 @@ const plugin: HermesPlugin = {
           keywords: ['design', 'canvas', '画布', '设计'],
           run: () => host.navigate('/design')
         } satisfies PaletteContribution
+      },
+      {
+        id: 'ai-entry',
+        area: PALETTE_AREA,
+        data: {
+          id: 'gugu.aiEntry',
+          action: 'gugu.aiEntry',
+          label: t('aiEntry'),
+          keywords: ['ai', 'ask', 'composer', 'prompt', '输入', '问'],
+          run: openAiEntry
+        } satisfies PaletteContribution
+      },
+      {
+        id: 'ai-entry',
+        area: KEYBINDS_AREA,
+        data: {
+          id: 'gugu.aiEntry',
+          category: 'view',
+          defaults: ['mod+alt+a'],
+          label: t('aiEntry'),
+          run: openAiEntry
+        } satisfies KeybindContribution
       }
     ])
   }

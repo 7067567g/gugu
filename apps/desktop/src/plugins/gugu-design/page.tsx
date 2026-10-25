@@ -26,17 +26,25 @@ function ProjectPicker({ onOpen }: { onOpen: (pid: string) => void }) {
   const projects = data?.projects ?? []
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-xl flex-col gap-4 overflow-y-auto p-8">
+    <div
+      className="mx-auto flex h-full w-full max-w-xl flex-col gap-4 overflow-y-auto p-8"
+      data-agent-id="design.projects"
+    >
       <h1 className="text-xl font-semibold">{t('title')}</h1>
       <div className="flex gap-2">
         <Input
           className="flex-1"
+          data-agent-id="design.projects.name"
           onChange={e => setName(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && name.trim() && create.mutate(name.trim())}
           placeholder={t('newProjectPlaceholder')}
           value={name}
         />
-        <Button disabled={!name.trim() || create.isPending} onClick={() => create.mutate(name.trim())}>
+        <Button
+          data-agent-id="design.projects.create"
+          disabled={!name.trim() || create.isPending}
+          onClick={() => create.mutate(name.trim())}
+        >
           {t('create')}
         </Button>
       </div>
@@ -108,7 +116,7 @@ function GeneratePanel({ pid }: { pid: string }) {
 
   if (gw.data && !gw.data.configured) {
     return (
-      <div className="grid gap-2 p-4 text-sm">
+      <div className="grid gap-2 p-4 text-sm" data-agent-id="design.panel">
         <p className="font-medium">{t('notLoggedIn')}</p>
         <Button onClick={() => host.navigate('/settings?tab=providers')}>{t('goLogin')}</Button>
       </div>
@@ -116,8 +124,8 @@ function GeneratePanel({ pid }: { pid: string }) {
   }
 
   return (
-    <div className="grid content-start gap-3 p-4">
-      <div className="flex gap-1 rounded-lg bg-(--ui-control-hover-background) p-1">
+    <div className="grid content-start gap-3 p-4" data-agent-id="design.panel">
+      <div className="flex gap-1 rounded-lg bg-(--ui-control-hover-background) p-1" data-agent-id="design.composer.kind">
         {(['image', 'video'] as const).map(k => (
           <button
             className={cn(
@@ -134,6 +142,7 @@ function GeneratePanel({ pid }: { pid: string }) {
       </div>
       <textarea
         className="min-h-24 w-full resize-y rounded-lg border border-(--ui-stroke-secondary) bg-transparent p-2 text-sm outline-none focus:border-primary"
+        data-agent-id="design.composer"
         onChange={e => setPrompt(e.target.value)}
         placeholder={t('promptPlaceholder')}
         value={prompt}
@@ -169,7 +178,7 @@ function GeneratePanel({ pid }: { pid: string }) {
               {duration}s
             </label>
           )}
-      <Button disabled={!prompt.trim() || submit.isPending} onClick={send}>
+      <Button data-agent-id="design.composer.send" disabled={!prompt.trim() || submit.isPending} onClick={send}>
         {submit.isPending ? t('submitting') : t('generate')}
       </Button>
       {submit.isError && <p className="text-xs text-red-500">{String(submit.error)}</p>}
@@ -199,7 +208,7 @@ function JobList({ pid }: { pid: string }) {
   }
 
   return (
-    <ul className="grid gap-1 border-t border-(--ui-stroke-secondary) p-3 text-xs">
+    <ul className="grid gap-1 border-t border-(--ui-stroke-secondary) p-3 text-xs" data-agent-id="design.panel.jobs">
       {jobs.map(j => (
         <li className="flex items-center justify-between gap-2" key={j.id}>
           <span className="truncate opacity-80">{String(j.request?.prompt ?? j.id).slice(0, 28)}</span>
@@ -278,9 +287,9 @@ function Workspace({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex h-full min-h-0" data-agent-id="design.workspace">
       <div className="relative min-w-0 flex-1">
-        <div ref={canvasBoxRef} className="absolute inset-0 overflow-hidden">
+        <div ref={canvasBoxRef} className="absolute inset-0 overflow-hidden" data-agent-id="design.canvas">
           <DesignCanvas
             document={doc}
             height={box.h}
@@ -296,8 +305,8 @@ function Workspace({ onBack }: { onBack: () => void }) {
           <span className="max-w-32 truncate px-1 text-sm font-medium">{doc.name}</span>
           <span className="px-1 text-[11px] opacity-50">{view.busy ? t('saving') : t('saved')}</span>
           <span className="mx-1 h-4 w-px bg-(--ui-stroke-secondary)" />
-          <Button disabled={!designController.canUndo} onClick={() => designController.undo()} size="icon-sm" variant="ghost"><Codicon name="discard" /></Button>
-          <Button disabled={!designController.canRedo} onClick={() => designController.redo()} size="icon-sm" variant="ghost"><Codicon name="go-to-start" /></Button>
+          <Button data-agent-id="design.canvas.undo" disabled={!designController.canUndo} onClick={() => designController.undo()} size="icon-sm" variant="ghost"><Codicon name="discard" /></Button>
+          <Button data-agent-id="design.canvas.redo" disabled={!designController.canRedo} onClick={() => designController.redo()} size="icon-sm" variant="ghost"><Codicon name="go-to-start" /></Button>
           <span className="mx-1 h-4 w-px bg-(--ui-stroke-secondary)" />
           {TOOLS.map(tool => (
             <Button
@@ -318,11 +327,11 @@ function Workspace({ onBack }: { onBack: () => void }) {
           <Button disabled={!hasSelection} onClick={() => designController.bringSelectedForward()} size="icon-sm" variant="ghost" title={t('toolForward')}>
             <Codicon name="arrow-up" />
           </Button>
-          <Button disabled={Object.keys(doc.elements).length === 0} onClick={() => designController.fitToView(box.w, box.h)} size="icon-sm" variant="ghost" title={t('toolFit')}>
+          <Button data-agent-id="design.canvas.fit" disabled={Object.keys(doc.elements).length === 0} onClick={() => designController.fitToView(box.w, box.h)} size="icon-sm" variant="ghost" title={t('toolFit')}>
             <Codicon name="zoom-in" />
           </Button>
-          <Button onClick={() => fileRef.current?.click()} size="icon-sm" variant="ghost" title={t('toolUpload')}><Codicon name="add" /></Button>
-          <Button disabled={!hasSelection} onClick={() => designController.hideSelected()} size="icon-sm" variant="ghost" title={t('toolHide')}>
+          <Button data-agent-id="design.canvas.upload" onClick={() => fileRef.current?.click()} size="icon-sm" variant="ghost" title={t('toolUpload')}><Codicon name="add" /></Button>
+          <Button data-agent-id="design.canvas.hide" disabled={!hasSelection} onClick={() => designController.hideSelected()} size="icon-sm" variant="ghost" title={t('toolHide')}>
             <Codicon name="trash" />
           </Button>
           <span className="px-1 text-xs tabular-nums opacity-60">{Math.round((doc.viewport.scale ?? 1) * 100)}%</span>
