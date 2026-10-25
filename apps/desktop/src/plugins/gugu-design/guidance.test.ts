@@ -252,11 +252,11 @@ describe('viewport and layout', () => {
     during.focus()
     expect(document.activeElement).toBe(during)
 
-    layer.interrupt('mode')
+    layer.clear()
     expect(document.activeElement).toBe(before)
   })
 
-  it('keeps focus where the user put it after ESC / blank click', () => {
+  it.each(['escape', 'mode'] as const)('keeps focus where the user put it after %s', source => {
     const before = document.createElement('input')
     const during = document.createElement('input')
     document.body.append(before, during)
@@ -265,7 +265,11 @@ describe('viewport and layout', () => {
     layer.show({ target_anchor: 'design.canvas' })
 
     during.focus()
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    if (source === 'escape') {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    } else {
+      layer.interrupt('mode')
+    }
     expect(document.activeElement).toBe(during)
   })
 

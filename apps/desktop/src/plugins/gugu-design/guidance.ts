@@ -13,8 +13,8 @@
  *   元素样式，也不把节点插进目标子树。目标只加一个布尔标记属性。
  * - 锚点解析用 `[data-agent-id]` 精确比对（不用 CSS.escape，避免注入/兼容性）。
  * - 引导状态不进入 React：画布不因引导重渲染；页面只负责喂命令与卸载清理。
- * - 程序性结束（mode/route/agent/unmount/error/timeout）恢复引导开始前的焦点与
- *   滚动；用户手势结束（ESC/空白点击）不抢回焦点——用户点哪里焦点就在哪里。
+ * - 程序性结束（agent/error/timeout/unmount）恢复引导开始前的焦点与滚动；
+ *   用户手势或导航（ESC/空白点击/route/mode）不抢回焦点——用户点哪里焦点就在哪里。
  */
 
 export type GuidanceEndReason = 'cancelled' | 'done' | 'interrupted'
@@ -36,7 +36,10 @@ const TARGET_ATTR = 'data-gugu-guide-target'
 const ANCHOR_ATTR = 'data-agent-id'
 const OVERLAY_ANCHOR = 'guidance.overlay'
 const STYLES: readonly GuidanceStyle[] = ['box', 'highlight', 'label']
-const USER_INTERRUPTS: readonly GuidanceInterrupt[] = ['blank-click', 'escape']
+// Only endings the user did not cause by moving focus themselves restore the
+// pre-guidance viewport. 'route'/'mode' are usually a click on a control, and
+// pulling focus back would steal it from what the user just pressed.
+const RESTORE_INTERRUPTS: readonly GuidanceInterrupt[] = ['agent', 'error', 'timeout', 'unmount']
 
 export interface GuidanceStep {
   /** 上游命令 id；缺省由 manager 生成。同一 id 不会被重复展示（页面去重）。 */
@@ -234,7 +237,7 @@ export function createGuidanceLayer(options: GuidanceLayerOptions = {}): Guidanc
     }
     const finished = state.guidance_id
     teardownDom()
-    if (!USER_INTERRUPTS.includes(interrupt)) {
+    if (RESTORE_INTERRUPTS.includes(interrupt)) {
       restoreViewport()
     } else {
       savedFocus = null

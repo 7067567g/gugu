@@ -36,8 +36,9 @@ step；新的 `show()` 先把旧的按 `interrupted/agent` 收尾，再渲染新
 | 异常 | overlay 挂载或测量抛错 → 清理后 `interrupted/error`，不抛给 React | interrupted / error |
 | 超时 | step 自带 `timeout_ms`（0 = 不超时） | done / timeout |
 
-注意：ESC / 空白点击是用户手势，结束时不抢回焦点——用户点哪里焦点就在哪里；其余
-程序性结束会恢复引导开始前的焦点与滚动位置（若目标仍 connected）。
+注意：焦点归用户。ESC / 空白点击 / 路由切换 / 模式切换通常由用户手势驱动，结束时不
+抢回焦点——用户点哪里焦点就在哪里；只有 Agent 取消、异常、超时、卸载这类用户没有移动
+焦点的结束才恢复引导开始前的焦点与滚动（目标仍 connected 时）。
 
 ## 3. 零残留契约
 
