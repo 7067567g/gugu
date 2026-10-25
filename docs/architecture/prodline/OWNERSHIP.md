@@ -62,6 +62,22 @@ recovery/release`）。source 的证据是 build 的输入，不单独发 receip
 为什么 `task`/`recovery` 归 `runtime`：它们描述的是同一个运行阶段内的观测，不是新的
 stage；`release` 归 `quality` 是因为升级/回滚是否可发布属于质量门，而不是安装动作本身。
 
+### 2.1 source 证据（P1.2 已落地）
+
+`prodline/stages/source.py` 只读收集一份 **source evidence**（`gugu.prodline-source-evidence/v1`），
+不是第 7 个 receipt：
+
+- 断言 4 条发布版本线：`product`（`GUGU_VERSION`，动态 semver）、`upstream_kernel`
+  （`pyproject.toml#project.version`）、`upstream`（`arch/upstream.lock#tag`，并校验
+  `commit == expected_commit`）、`upstream_desktop`（`apps/desktop/package.json#version`）；
+- **B14**：登记 `bootstrap_installer_tauri`（`apps/bootstrap-installer/src-tauri/tauri.conf.json`），
+  按字面量断言 `0.21.1`，防止这条独立版本线再漏登/漂移；
+- 计算 `uv.lock` / `package-lock.json` 的 canonical（UTF-8、LF、无 BOM）sha256 与 raw sha256；
+- 提供 `collect_source_evidence` / `hash_lockfile` / `verify_source_evidence` 三个 import 接口，
+  供 A02 逐字抄写 manifest 的 `lockfiles`，不再另造读取逻辑。
+
+字段、CLI、A02 消费方式与负样例见 [`SOURCE-EVIDENCE.md`](SOURCE-EVIDENCE.md)。
+
 ---
 
 ## 3. 六个 `v1` receipt
@@ -160,12 +176,15 @@ prodline/
 │   ├── task-receipt.schema.json
 │   ├── recovery-receipt.schema.json
 │   └── release-receipt.schema.json
-├── stages/__init__.py           # P1.2 填 source.py
+├── stages/
+│   ├── __init__.py              # stage 包说明
+│   └── source.py                # P1.2：4 条版本线 + tauri(B14) + lockfile 哈希 + CLI
 ├── runners/__init__.py          # P1.3 填 receipt_check.py / accept.py
 └── tests/
     ├── _schema_subset.py        # stdlib schema 子集校验器（测试支持）
     ├── test_pipeline_contract.py
-    └── test_receipt_schemas.py
+    ├── test_receipt_schemas.py
+    └── test_source_stage.py     # source 正样例 + 漂移/漏登/篡改/CRLF 负样例
 ```
 
 ---
@@ -184,9 +203,12 @@ cd /home/a7067567g/下载/deepseek/60-外部仓库/gugu-work
 
 ---
 
-## 9. 本轮（P1.1）不做什么
+## 9. 历史：P1.1 不做什么（P1.2 已补 source）
 
-- 不实现 `stages/source.py`（P1.2）、不实现 `receipt_check.py` / `accept.py`（P1.3）；
+P1.1 的边界保持原样记录：
+
+- 不实现 `stages/source.py`（**P1.2 已实现，见 §2.1 / `SOURCE-EVIDENCE.md`**）、
+  不实现 `receipt_check.py` / `accept.py`（P1.3）；
 - 不生成 `acceptance-report.json`；
 - 不定义 `artifact-manifest/v1`（A01 的产物契约，本文只引用）；
 - 不跑构建 / 安装 / 真实任务 / soak；
