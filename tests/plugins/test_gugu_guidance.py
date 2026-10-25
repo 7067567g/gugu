@@ -80,6 +80,28 @@ def test_list_capabilities_enumerates_targetable_anchors():
     }
 
 
+def test_anchors_cover_work_settings_and_artifacts_surfaces():
+    result = executor.execute("list_capabilities", {})
+    anchors = {anchor["id"]: anchor for anchor in result["data"]["anchors"]}
+
+    cross_surface = {"work.composer": "work", "settings.header": "settings", "artifacts.root": "artifacts"}
+    for anchor_id, surface in cross_surface.items():
+        assert anchors[anchor_id]["surface"] == surface
+        assert anchors[anchor_id]["status"] == "present"
+        assert anchors[anchor_id]["targetable"] is True
+
+
+@pytest.mark.parametrize("anchor", ["work.composer", "settings.header", "artifacts.root"])
+def test_highlight_works_on_every_registered_surface(home: Path, anchor: str):
+    result = _highlight(target_anchor=anchor, text="跨界面引导")
+
+    assert result["ok"] is True, result
+    payload = store.read_guidance()
+    assert payload is not None
+    assert payload["target_anchor"] == anchor
+    assert store.clear_guidance() is True
+
+
 def test_registry_examples_for_highlight_still_match_schema():
     entry = registry.get_capability("highlight")
     assert entry is not None

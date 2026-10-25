@@ -1,10 +1,11 @@
 # 07 · 引导层（M2，P0 收口保留）
 
-> 状态：M3 / P0 收口（2026-10-25）。引导层在 M2 交付，M3 未改行为；本文档仍是零残留
-> 契约与传输限制的事实源。已知限制见 `docs/09-known-limitations.md` §4。
+> 状态：M3b / P0 收口（2026-10-25）。引导层在 M2 交付；M3b 把消费循环从 `/design`
+> 页面提升到 app 级 runtime，任意界面可 highlight/box/label，零残留契约不变。
+> 已知限制见 `docs/09-known-limitations.md` §4。
 > 契约：`gugu-p0-pipeline/ROUND-SPEC.md` 硬边界 9；
 > 产品规范：`strategy/product/gugu-p0-consolidation.md` §4。
-> 代码：`apps/desktop/src/plugins/gugu-design/guidance.ts` +
+> 代码：`apps/desktop/src/plugins/gugu-design/{guidance,global-runtime}.ts` +
 > `plugins/gugu_capabilities/{registry,executor,store}.py` +
 > `plugins/gugu-design/dashboard/plugin_api.py`。
 
@@ -34,7 +35,7 @@ step；新的 `show()` 先把旧的按 `interrupted/agent` 收尾，再渲染新
 | 路由切换 | `window` `hashchange`（manager 自持） | interrupted / route |
 | 模式切换 | 生成面板 image↔video 切换调用 `interrupt('mode')` | interrupted / mode |
 | Agent 取消 | `clear_guidance` 删邮箱；渲染端轮询发现后 `clear()` | cancelled / agent |
-| 组件卸载 | `/design` Workspace effect cleanup / 插件 `onDispose` → `dispose()` | interrupted / unmount |
+| 组件卸载 | 插件 `onDispose` → app 级 runtime `stop()` → `dispose()`（不再由 `/design` 页面 cleanup 触发） | interrupted / unmount |
 | 异常 | overlay 挂载或测量抛错 → 清理后 `interrupted/error`，不抛给 React | interrupted / error |
 | 超时 | step 自带 `timeout_ms`（0 = 不超时） | done / timeout |
 
@@ -44,7 +45,8 @@ step；新的 `show()` 先把旧的按 `interrupted/agent` 收尾，再渲染新
 
 ## 3. 零残留契约
 
-一次引导结束后必须同时满足（`guidance.test.ts` 对每个中断源都断言）：
+一次引导结束后必须同时满足（`guidance.test.ts` 对每个中断源都断言；
+`global-runtime.test.ts` 在 app 级 runtime 上重跑同一组零残留断言）：
 
 - `document.querySelectorAll('[data-gugu-guide]').length === 0`
 - `document.querySelectorAll('[data-gugu-guide-target]').length === 0`，且目标元素的
@@ -84,13 +86,18 @@ M1 遗留的 renderer 方向 host 通道（RPC/WS）尚未建，本轮不硬造�
  "style": "highlight|box|label", "timeout_ms": 0, "created_at": 1790000000.0}
 ```
 
-- `GET /api/plugins/gugu-design/guidance` 供 `/design` 轮询（约 1.2s），只读。
+- `GET /api/plugins/gugu-design/guidance` 由 app 级 runtime 轮询（约 1.2s），只读；
+  不依赖 `/design` 页面挂载。
 - `DELETE …/guidance?guidance_id=…` 由渲染端在本地中断后 best-effort 调用；带 id
   作用域，迟到的 dismiss 不会删掉 Agent 刚写入的下一步。
 - `clear_guidance` 删除邮箱；重复调用返回 `cleared=false`。
 
-代价：引导从 Agent 调用到出现在屏幕上最多约 1.2s，且需要 `/design` 页挂载。这是本轮
-明确的限制，`VERDICT` 已把“真正 host 通道”列为下一轮承重项，不把轮询说成实时。
+代价：引导从 Agent 调用到出现在屏幕上最多约 1.2s（仍是轮询，不是推送）。M3b 去掉了
+“必须停留在 `/design`”的限制；真正的 host 通道仍是 backlog（B-04），不把轮询说成实时。
+
+跨 surface 锚点：`work.composer` / `settings.header` / `artifacts.root` 与 `design.*`
+共用同一 `ANCHORS` 表；Agent 从 `list_capabilities.anchors` 的 `surface` 字段即可知道
+某个锚点在哪个界面，先 `navigate` 再 `highlight`。
 
 ## 6. 用法
 
@@ -106,15 +113,17 @@ executor.execute("clear_guidance", {})            # 幂等
 ## 7. 测试
 
 ```bash
-cd apps/desktop && npx vitest run --project ui src/plugins/gugu-design/guidance.test.ts
+cd apps/desktop && npx vitest run --project ui src/plugins/gugu-design
 cd /home/a7067567g/下载/deepseek/60-外部仓库/gugu-work
 .venv/bin/python -m pytest tests/plugins/test_gugu_guidance.py -q --timeout=600
 ```
 
-桌面测试 28 条：渲染 3 种 style、重复 show 不叠层、7 个中断源逐个断言零残留、
-超时与提前中断清 timer、listener 调用数、焦点/滚动、布局不变、挂载/测量异常、订阅
-生命周期。Python 测试 13 条：registry 契约、锚点枚举、邮箱写入/清除/作用域、端点
-GET/DELETE、schema 与错误码。
+桌面测试：`guidance.test.ts` 28 条（渲染 3 种 style、重复 show 不叠层、7 个中断源逐个
+断言零残留、超时与提前中断清 timer、listener 调用数、焦点/滚动、布局不变、挂载/测量异常、
+订阅生命周期）；`global-runtime.test.ts` 13 条在 app 级 runtime 上重跑跨 surface 引导、
+路由中断、非当前 surface 锚点 dismiss、`stop()` 后 overlay/target/listener/timer 全零。
+Python 测试：registry 契约、锚点枚举（含 work/settings/artifacts）、邮箱写入/清除/作用域、
+端点 GET/DELETE、schema 与错误码。
 
 ## 8. 非目标 / 下一轮
 

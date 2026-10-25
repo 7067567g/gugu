@@ -99,8 +99,10 @@ M3 自用 dogfood 见 `runs/gugu-p0-m3-dogfood/reports/dogfood/`（同一命令�
 ## 6. 明确不做 / 已知缺口
 
 - 引导层在 M2 已交付（`highlight/clear_guidance` 均为 `ready`，见 `docs/07-guidance.md`）；
-  hero flow 本身**不强制**显示引导，引导由 Agent 另行调用。
-- 不实现 `navigate` 真实路由（`planned`；P0 未交付，列入 backlog）。
+  M3b 起消费循环在 app 级 runtime，任意界面可见；hero flow 本身**不强制**显示引导。
+- `navigate` 在 M3b 已真执行（四界面 + renderer ack，失败返回 `navigated=false`），见
+  `docs/05-agent-capabilities.md`；hero flow 本身不依赖它。
+- 真实 `qwen-image-2.0` 厂商实测因本机无凭据 **BLOCKED**（`runs/gugu-p0-m3b-global-reach/reports/G3-BLOCKED.md`）。
 - Mermaid 子集渲染器不追求 mermaid.js 全语法；遇到不支持语法会按契约降级，而不是假渲染。
 - agent 写入仍不触发 dashboard `/events`（M0 已知），实时可见/session-scoped toolset 留给后续。
 - `human_interventions` 是常量 0；owner 真实任务与真实模型延迟尚未实测。

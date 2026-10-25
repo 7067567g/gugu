@@ -56,6 +56,28 @@ HERMES_HOME=$(mktemp -d) GUGU_ALLOW_MOCK_IMAGES=1 \
   真跑返回画布元素与 selection。
 - **owner 真实任务未做**（headless 进程不能代替），见下“未验证”。
 
+### M3b 全局可达（2026-10-25，追加，版本仍 0.9.0）
+
+补 P0 三处真缺口，不扩功能、不重复 bump：
+
+- **navigate 真执行**：`navigate(screen)` 从 `planned` → `ready (M3)`。executor 写
+  `designs/navigation.json`，app 级 runtime 调 `host.navigate()` 并回写
+  `agent-state.json`（`nav_request_id` + `screen` + `route`）；只有 id 与落点路由都匹配
+  才返回 `navigated=true`，超时返回 `navigated=false` + `reason`。覆盖
+  work/design/settings/artifacts 四界面；`surfaceForRoute` 新增 `artifacts`。
+- **引导层全局化**：消费循环从 `/design` `Workspace` 提升到插件 `register()` 的 app 级
+  runtime（不再依赖 `/design` 挂载，页面 cleanup 也不会 dispose 全局层）；新增跨 surface
+  锚点 `work.composer` / `settings.header` / `artifacts.root`，`list_capabilities.anchors`
+  可枚举；零残留测试在全局层重跑。
+- **真实网关 smoke = BLOCKED（缺凭据）**：再次探测 `gateway_credentials()` 为空、
+  `GUGU_IMAGE_*`/`OPENAI_*` 未设置、`~/.hermes/config.yaml` 不存在。没有真实生成图，
+  也没有把 mock/本地 stub 说成厂商实测。真实 HTTP 代码路径（POST + Bearer + b64/url
+  两条响应）由本地 socket 集成测试证明，显式标注 “local integration, NOT vendor smoke”。
+  证据：`runs/gugu-p0-m3b-global-reach/reports/G3-BLOCKED.md`。
+
+本轮本地 commit（未 push）：`9082543873`（navigate Python）、`53339170ef`（app 级 runtime
++ 跨 surface 锚点）、文档/测试收口 commit 见 `runs/gugu-p0-m3b-global-reach/reports/diff-stat.txt`。
+
 ### 门禁真值（`cd gugu-work`）
 
 - `pytest tests/plugins/test_gugu_p0_docs_contract.py + test_gugu_capabilities{,_m1}.py +

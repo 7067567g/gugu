@@ -43,7 +43,10 @@ gugu_capability(capability="read_state",
   （`targetable=true` 才能被高亮）。
 - `read_state` 返回四个键；`project_id` 显式传入优先，否则读渲染端发布的
   `designs/agent-state.json`。
-- `planned` 能力（当前只有 `navigate`）返回 `not_implemented`，不会伪造成功。
+- `navigate(screen)` 到 `work/design/settings/artifacts`；成功后返回
+  `navigated=true` + `route`，可用 `read_state` 复核。没有桌面渲染端时如实返回
+  `navigated=false`（`reason=no_renderer`），不伪造成功。
+- 当前没有 `planned` 能力；若未来重新引入，仍会返回 `not_implemented`，不会伪造成功。
 
 ## 4. Hero flow B（P0 唯一验收流程）
 
@@ -122,11 +125,13 @@ cd apps/desktop && npm run typecheck && npx vitest run --project ui src/plugins/
 | 现象 | 先看 |
 | --- | --- |
 | `approval_required` | `generate_diagram` / `generate_image` 需要 UI/E2E 侧 `approved=True`；Agent 工具不暴露该参数 |
-| `not_implemented` | 该能力仍是 `planned`（当前只有 `navigate`） |
+| `not_implemented` | 该能力仍是 `planned`（当前没有）；检查 registry 与插件是否最新 |
 | `generation_failed` | 主/备模型都失败且未允许 mock；看返回的 `attempts` 与网关配置 |
 | `project_not_found` | `project_id` 显式传错；工程列表里重新选 |
-| 引导不出现 | `/design` 是否挂载；邮箱 `designs/guidance.json`；约 1.2s 轮询延迟 |
+| `navigate` 返回 `navigated=false` | `reason=no_renderer` = 桌面渲染端没在轮询（headless/远端）；`timeout` = 路由 2.5s 内没确认。看 `designs/navigation.json` 与 `agent-state.json` 的 `nav_request_id` |
+| 引导不出现 | 邮箱 `designs/guidance.json`；约 1.2s 轮询延迟；锚点是否在**当前** surface（先 `navigate` 再 `highlight`） |
 | 画布看不到 Agent 改动 | 直写 `project.json` 不触发 `/events`；下次保存/重进工程才会重拉（已知缺口） |
 | 导出失败 | 空画布会返回 `export_failed`；先放至少一个元素 |
 
-P0 的完整验收状态与未完成项：`runs/gugu-p0-m3-dogfood/reports/P0-CLOSEOUT.md`。
+P0 的完整验收状态与未完成项：`runs/gugu-p0-m3-dogfood/reports/P0-CLOSEOUT.md`；
+M3b 全局可达与真实网关状态：`runs/gugu-p0-m3b-global-reach/reports/`（G3 = BLOCKED 缺凭据）。

@@ -1,12 +1,14 @@
 # 05 · Agent capabilities（P0）
 
-> 状态：M3 / P0 收口（2026-10-25）。M0 契约 + 最小读写；M1 真实生成（Mermaid→SVG /
+> 状态：M3b / P0 收口（2026-10-25）。M0 契约 + 最小读写；M1 真实生成（Mermaid→SVG /
 > 主备模型→显式 mock）、原地修正与导出；M2 引导层（`highlight` / `clear_guidance`）与
-> 零残留；M3 自用 dogfood + 文档/版本收口。`navigate` 仍是 `planned`，跨进程通道不在
-> P0 已交付范围。
+> 零残留；M3 自用 dogfood + 文档/版本收口；M3b 补齐三处真缺口：`navigate` 四界面真执行、
+> 引导层提升到 app 级（work/design/settings/artifacts 任意界面）、真实 HTTP 路径集成
+> （厂商实测因无凭据 BLOCKED，见 `runs/gugu-p0-m3b-global-reach/reports/G3-BLOCKED.md`）。
+> 版本仍是 0.9.0，不重复 bump。
 > 代码事实源：`plugins/gugu_capabilities/registry.py`（能力/锚点）、`executor.py`（执行）、
-> `store.py`（画布/资产）、`diagram.py` / `images.py` / `export.py`（M1）、
-> `apps/desktop/src/plugins/gugu-design/guidance.ts`（M2）。
+> `store.py`（画布/资产/邮箱）、`diagram.py` / `images.py` / `export.py`（M1）、
+> `apps/desktop/src/plugins/gugu-design/{guidance,global-runtime}.ts`（M2/M3b）。
 > 本文不重复 schema 细节，只解释边界与取舍。
 
 ## 1. 一个 AI 输入框
@@ -34,7 +36,7 @@ side_effects / requires_approval / ui_anchors / examples`，外加 `status` 与 
 | `generate_image(prompt, refs)` | ready (M1) | 是 | 主 qwen-image-2.0 → 备 gpt-image-2-medium → 非生产显式 mock；模型名走 env |
 | `place_on_canvas(artifact, position)` | ready | 否 | 落一个已有 asset；同 key 幂等 |
 | `update_artifact(id, …)` | ready | 否 | 原地替换 asset/几何，不新增副本 |
-| `highlight(target, text)` | ready (M2) | 否 | 写 guidance 邮箱；`/design` 渲染 overlay，7 个中断源零残留 |
+| `highlight(target, text)` | ready (M2/M3b) | 否 | 写 guidance 邮箱；app 级 runtime 在任意界面渲染 overlay，7 个中断源零残留 |
 | `clear_guidance()` | ready (M2) | 否 | 删除邮箱并幂等；本地中断 best-effort DELETE |
 | `undo()` | ready | 否 | 画布快照栈（最多 10 步） |
 | `export_canvas(project_id)` | ready (M1) | 否 | 自包含 zip：project.json + assets + preview.svg + manifest 校验和 |
@@ -131,7 +133,13 @@ P0 实际落到桌面的锚点：
 `canvas.export` 在 M1 变成 present（画布工具条的导出按钮）；`guidance.overlay` 在 M2
 变成 present（引导 active 时挂到 `body`），但 `targetable=false`，不能作为高亮目标。
 
-M2 起 `list_capabilities` 的返回信封多一个 `anchors` 字段，Agent 可直接枚举：
+M3b 增加三个跨 surface 锚点，任意界面都能被 `highlight`/`box`/`label`：
+
+- `work.composer`（核心 Chat 输入框）
+- `settings.header`（设置页导航/标题区）
+- `artifacts.root`（产物库页面根）
+
+`list_capabilities` 的返回信封带 `anchors` 字段，Agent 可直接枚举（含 `surface`）：
 
 ```json
 {"id": "canvas.export", "surface": "canvas", "status": "present",
@@ -151,9 +159,13 @@ M2 起 `list_capabilities` 的返回信封多一个 `anchors` 字段，Agent 可
 .venv/bin/python -m pytest tests/plugins/test_gugu_agent_state_api.py -q -x --timeout=600
 # 引导层：锚点枚举 + 邮箱 + 端点（13）
 .venv/bin/python -m pytest tests/plugins/test_gugu_guidance.py -q -x --timeout=600
+# navigate：四界面 + renderer ack + 超时回退（M3b）
+.venv/bin/python -m pytest tests/plugins/test_gugu_navigate.py -q -x --timeout=600
+# 真实 HTTP 路径（本地 stub；厂商实测见 reports/G3-BLOCKED.md）
+.venv/bin/python -m pytest tests/plugins/test_gugu_real_gateway.py -q -x --timeout=600
 # P0 文档门禁：本表状态必须与 registry 一致
 .venv/bin/python -m pytest tests/plugins/test_gugu_p0_docs_contract.py -q -x --timeout=600
-# 桌面（纯函数 + 零残留 DOM 契约）
+# 桌面（纯函数 + 全局零残留 DOM 契约）
 cd apps/desktop && npx vitest run --project ui src/plugins/gugu-design
 # arch
 .venv/bin/python scripts/arch/check_boundaries.py --baseline arch/baseline.json
@@ -163,16 +175,20 @@ cd apps/desktop && npx vitest run --project ui src/plugins/gugu-design
 双校验器一致；主/备/显式 mock 阶梯；instruction 原地换图不增副本；导出 zip；hero flow 计时；`list_capabilities`、`read_state`
 真跑；放置幂等（自然 key + operation_id 重放）；原地替换不增副本；undo 多步与 Host 字段保护；
 审批与 planned 不伪装；插件工具注册与 handler 执行；M2 锚点枚举、highlight 邮箱、
-clear 幂等、7 个中断源的零残留。
+clear 幂等、7 个中断源的零残留；M3b navigate 四界面 ack/超时/decoy-id、跨 surface 锚点、
+全局 runtime 停机的零残留、真实 HTTP 的 b64/url 两条路径。
 
 ## 8. 下一阶段接口
 
+- **M3b 已交付**：`navigate` 四界面真执行（邮箱 + agent-state ack，失败如实 false）；
+  引导消费循环提升到 app 级 runtime，`work/settings/artifacts` 可高亮；真实 HTTP 路径集成。
+  厂商 `qwen-image-2.0` 实测因无凭据 **BLOCKED**（`reports/G3-BLOCKED.md`），不是 PASS。
 - **M3 已交付**：P0 自用 dogfood（自动化路径，图片显式 mock）+ 文档收口 + `GUGU_VERSION`
   `0.9.0` + P0 CLOSEOUT/backlog。P0 §8 的 7 个可自动化验收项有证据；第 8 项 owner 真实
   任务未由 headless 进程完成，见 `runs/gugu-p0-m3-dogfood/reports/P0-CLOSEOUT.md`。
-- **P0 未交付（backlog，非本轮范围）**：`navigate` 跨进程通道；agent 写入走 host RPC/WS
-  （实时可见）；session-scoped toolset 收口；plan strip；多步引导；锚点漂移自动检测；
-  Electron 真窗口视觉回归；真实网关实测。优先级见 `NEXT-BACKLOG.md`。
+- **P0 未交付（backlog，非本轮范围）**：agent 写入/导航走 host RPC/WS（实时可见，B-04）；
+  session-scoped toolset 收口；plan strip；多步引导；锚点漂移自动检测；
+  Electron 真窗口视觉回归；真实网关实测（等凭据）。优先级见 `NEXT-BACKLOG.md`。
 - M1 已交付：`generate_*` 真实实现 + 审批、原地修正、导出、hero flow E2E（见 `docs/06-hero-flow.md`）。
 - M2 已交付：`highlight/clear_guidance` ready；锚点表复用并可由 `list_capabilities.anchors`
-  枚举；`/design` 消费引导邮箱；零残留按 7 个中断源自动测试（见 `docs/07-guidance.md`）。
+  枚举；零残留按 7 个中断源自动测试（见 `docs/07-guidance.md`）。

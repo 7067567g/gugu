@@ -12,25 +12,34 @@ P0 §8 第 8 条要求 owner 用一次真实任务。M3 由一个 headless 进�
 vitest；**不是**“owner 已验收”。
 → 发布前由 owner 按 `docs/08-p0-usage.md` §4 走一遍并记录耗时/干预/问题。
 
-## 2. 真实模型没有实测（B-02）
+## 2. 真实模型没有实测（B-02，M3b 仍 BLOCKED）
 
 M3 环境无网关凭据，3 张配图与修正图全部是显式 mock（`mock=true`、`MOCK-*`、水印）。
+M3b 再次探测：`gateway_credentials()` 为空、`GUGU_IMAGE_*`/`OPENAI_*` 未设置、
+`~/.hermes/config.yaml` 不存在，因此真实 `qwen-image-2.0` 生成 **BLOCKED**，没有把
+本地 HTTP stub 当成厂商实测（证据：`runs/gugu-p0-m3b-global-reach/reports/G3-BLOCKED.md`）。
 主/备/mock 阶梯只由单测与失败注入证明；“真实 qwen/gpt 网关可用、真实延迟、失败率”
-未验证。0.006s 的 time-to-first-artifact 不能当真实创作耗时。
+仍未验证。0.006s 的 time-to-first-artifact 不能当真实创作耗时。
 
-## 3. `navigate` 仍是 planned（B-03）
+## 3. `navigate` 已真执行，但仍走邮箱轮询（B-03/B-04）
 
-`navigate(screen)` 有契约与 schema，但没有跨进程导航通道；调用返回 `not_implemented`。
-P0 §6 把它列为“做”，§8 未单列；收口时按“未交付”记账。需要 host RPC/WS 或
-session-scoped toolset 一起做。
+M3b 起 `navigate(screen)` 是 `ready (M3)`：写 `designs/navigation.json`，app 级 runtime
+约 250ms 轮询后调 `host.navigate()`，再用 `agent-state.json` 的 `nav_request_id` 确认。
+因此：
+- 桌面渲染端没运行时返回 `navigated=false`（`no_renderer`/`timeout`），不是假成功；
+- 仍不是 renderer-directed host RPC/WS，跨进程延迟最坏约 250ms + 一次发布；
+- 远端 backend 拓扑下，工具写的是 backend 的 `HERMES_HOME/designs`，不是桌面客户端的
+  文件（与 B-09 同一个范围问题）。
 
-## 4. 引导不是实时，且依赖 `/design` 挂载（B-04）
+## 4. 引导已全局，但仍不是实时（B-04）
 
-`highlight` 写 `designs/guidance.json`，`/design` 约 1.2s 轮询消费。因此：
-- Agent 调用到屏幕可见最多约 1.2s；
-- `/design` 未挂载时命令停留在邮箱，下次进入才消费（或 `clear_guidance` 清掉）；
+M3b 把消费循环从 `/design` 提升到 app 级 runtime（任意界面可 highlight/box/label）。
+限制变成：
+- Agent 调用到屏幕可见最多约 1.2s（轮询，不是推送）；
+- 锚点必须在**当前** surface；跨界面要先 `navigate` 再 `highlight`，否则该步被 dismiss；
 - 多步引导 / 滚动跟随未实现（overlay 坐标在 show 时算一次）。
-零残留契约本身由 28 条 vitest 覆盖（7 个中断源 + 超时）。
+零残留契约由 28 条 manager vitest + 13 条 app 级 runtime vitest 覆盖（7 个中断源 +
+超时 + stop 后 overlay/target/listener/timer 全零）。
 
 ## 5. `human_interventions` 是常量（B-05）
 
