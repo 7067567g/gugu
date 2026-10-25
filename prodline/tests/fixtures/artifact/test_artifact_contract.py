@@ -301,3 +301,40 @@ def test_git_tree_rebuild_applies_gitattributes_eol(tmp_path: Path) -> None:
         }
     )
     assert raw_tree != tree
+
+
+def test_v1_is_additive_for_optional_and_future_fields(tmp_path: Path) -> None:
+    case = {
+        "id": "additive",
+        "expect": "pass",
+        "manifest_patch": {
+            "commit_short": "fe03417",
+            "branch": "main",
+            "git_archive": {
+                "format": "zip",
+                "compression_level": 9,
+                "generator": "git archive",
+                "git_version": "2.43.0",
+            },
+            "extra_artifacts": [],
+            "payloads": [],
+            "future_v1_field": {"ignored": True},
+        },
+    }
+    built = fixture_builder.build_case(case, tmp_path)
+    result = artifact_check.check_artifact(built.manifest, zip_path=built.zip_path)
+    assert result.problems == []
+
+
+def test_known_optional_shapes_are_still_checked(tmp_path: Path) -> None:
+    case = {
+        "id": "bad-optional",
+        "expect": "fail",
+        "manifest_patch": {"git_archive": {"format": "tar"}},
+        "problems_contain": ["git_archive.format", "expected const 'zip'"],
+    }
+    built = fixture_builder.build_case(case, tmp_path)
+    result = artifact_check.check_artifact(built.manifest, zip_path=built.zip_path)
+    assert not result.ok
+    for needle in case["problems_contain"]:
+        assert any(needle in problem for problem in result.problems)
