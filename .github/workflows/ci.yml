@@ -188,6 +188,85 @@ jobs:
             --cov-report=term-missing \
             --cov-fail-under=40
 
+  # Windows build lane (A03). This job is the difference between "never ran"
+  # and "ran and failed": it has NO job-level `if:` (so it cannot be skipped
+  # into looking optional) and no `continue-on-error`. Only the *second* build
+  # is event-gated at the step level, so a PR pays for one NSIS build while
+  # push:main proves a dual build. The record step runs with `if: always()`
+  # and writes a `status=fail` receipt when the build output is absent, so a
+  # failed run never looks like a lane that never produced evidence. The
+  # `build_gate check` step is the verdict (exit 3 == no receipt == never ran,
+  # exit 1 == receipt present but rejected == ran and failed); see
+  # docs/architecture/prodline/BUILD-WIN.md. The lane does not pass
+  # `--exclude`: the NSIS exe embeds build/install-stamp.json's builtAt, so a
+  # dual build is either genuinely byte-identical or red. `manifest-normalized`
+  # stays available (and is tested) but enabling it needs A04's 7z evidence.
+  build-win:
+    name: build-win (Windows NSIS)
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install JS workspace (lockfile; legacy peers for react-konva)
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - name: Build 1 of 2 (every event; single build on PR)
+        working-directory: apps/desktop
+        run: npm run dist:win:nsis
+      - name: Stage build 1 output
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/build | Out-Null
+          if (Test-Path artifacts/build/win-1) { Remove-Item -Recurse -Force artifacts/build/win-1 }
+          Move-Item apps/desktop/release artifacts/build/win-1
+      - name: Build 2 of 2 (push:main only; dual build)
+        if: github.ref == 'refs/heads/main'
+        working-directory: apps/desktop
+        run: npm run dist:win:nsis
+      - name: Stage build 2 output (push:main only)
+        if: github.ref == 'refs/heads/main'
+        shell: pwsh
+        run: Move-Item apps/desktop/release artifacts/build/win-2
+      - name: Record build receipt (event-tiered; always writes evidence)
+        if: always()
+        shell: pwsh
+        env:
+          BUILD_EVENT: ${{ github.ref == 'refs/heads/main' && 'push-main' || 'pr' }}
+        run: |
+          $extra = @()
+          if ($env:BUILD_EVENT -eq 'push-main') {
+            $extra = @('--build-dir', 'artifacts/build/win-2')
+          }
+          python -m prodline.gates.build_gate record `
+            --event $env:BUILD_EVENT `
+            --commit $env:GITHUB_SHA `
+            --build-dir artifacts/build/win-1 `
+            @extra `
+            --out artifacts/build/build-receipt-win.json
+      - name: Gate event/tier (never-ran is not pass)
+        if: always()
+        shell: pwsh
+        env:
+          BUILD_EVENT: ${{ github.ref == 'refs/heads/main' && 'push-main' || 'pr' }}
+        run: |
+          python -m prodline.gates.build_gate check `
+            artifacts/build/build-receipt-win.json `
+            --event $env:BUILD_EVENT `
+            --expect-commit $env:GITHUB_SHA
+      - name: Upload Windows build receipt (always, even on failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-win-receipt
+          path: artifacts/build/build-receipt-win.json
+          if-no-files-found: warn
+          retention-days: 14
+
   # Single required status check. `if: always()` makes this job report even
   # when a dependency fails; the explicit step then turns "dependency did not
   # succeed" into a red aggregator instead of a silently pending check.
@@ -198,6 +277,7 @@ jobs:
       - python-compile
       - arch-gate
       - prodline-gate
+      - build-win
       - desktop-typecheck
       - desktop-vitest
       - pytest
@@ -210,6 +290,7 @@ jobs:
           echo "python-compile: ${{ needs.python-compile.result }}"
           echo "arch-gate: ${{ needs.arch-gate.result }}"
           echo "prodline-gate: ${{ needs.prodline-gate.result }}"
+          echo "build-win: ${{ needs.build-win.result }}"
           echo "desktop-typecheck: ${{ needs.desktop-typecheck.result }}"
           echo "desktop-vitest: ${{ needs.desktop-vitest.result }}"
           echo "pytest: ${{ needs.pytest.result }}"
@@ -218,6 +299,7 @@ jobs:
           test "${{ needs.python-compile.result }}" = "success"
           test "${{ needs.arch-gate.result }}" = "success"
           test "${{ needs.prodline-gate.result }}" = "success"
+          test "${{ needs.build-win.result }}" = "success"
           test "${{ needs.desktop-typecheck.result }}" = "success"
           test "${{ needs.desktop-vitest.result }}" = "success"
           test "${{ needs.pytest.result }}" = "success"

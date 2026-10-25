@@ -9,10 +9,11 @@ plus PyYAML: the CI jobs they guard install only ``pytest`` /
 Scope: job graph (``pytest`` matrix on 3.11 + 3.12, the wider
 ``pytest-suites`` regression lane, the ``desktop-vitest`` UI lane, a
 ``coverage`` job with ``--cov-fail-under=40``, the ``arch-gate`` hardening
-(F2 parse-error gate + F4 checker tests), the P1.3 ``prodline-gate`` lane, and
-an ``all-checks-passed`` aggregator whose ``needs`` covers every other job)
-plus the matching ``[tool.coverage.*]`` configuration and its measured-baseline
-comments in ``pyproject.toml``.
+(F2 parse-error gate + F4 checker tests), the P1.3 ``prodline-gate`` lane, the
+A03 ``build-win`` lane (windows-latest, no job-level skip, step-level
+single/dual build, event/tier gate), and an ``all-checks-passed`` aggregator
+whose ``needs`` covers every other job) plus the matching ``[tool.coverage.*]``
+configuration and its measured-baseline comments in ``pyproject.toml``.
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ REQUIRED_JOBS = {
     "python-compile",
     "arch-gate",
     "prodline-gate",
+    "build-win",
     "desktop-typecheck",
     "pytest",
     "pytest-suites",
@@ -397,6 +399,88 @@ def test_prodline_gate_runs_contract_tests_and_real_accept() -> None:
     )
     assert "--expect-pass" in text, (
         "prodline-gate must fail when the source stage is not PASS"
+    )
+
+
+def test_build_win_job_is_windows_event_tiered_and_not_skippable() -> None:
+    """A03: the Windows lane must not be able to look like it never had to run."""
+    jobs = _jobs()
+    assert "build-win" in REQUIRED_JOBS, "A03: REQUIRED_JOBS must pin build-win"
+    assert "build-win" in jobs, "ci.yml must define a `build-win` job"
+    job = jobs["build-win"]
+
+    assert job.get("runs-on") == "windows-latest", (
+        "build-win must run on windows-latest (no wine substitute on this host)"
+    )
+    assert "if" not in job, (
+        "build-win must not be job-level skipped; a skipped job must never read as optional"
+    )
+    assert "continue-on-error" not in job, "build-win must not soft-fail"
+    assert "continue-on-error" not in _steps_text(job), (
+        "no build-win step may soft-fail"
+    )
+
+    build_steps = [
+        step
+        for step in job.get("steps") or []
+        if isinstance(step, dict) and "dist:win:nsis" in str(step.get("run") or "")
+    ]
+    assert len(build_steps) == 2, (
+        "build-win must invoke the NSIS build twice so push:main can compare two builds"
+    )
+    unconditional = [step for step in build_steps if not step.get("if")]
+    conditional = [step for step in build_steps if step.get("if")]
+    assert len(unconditional) == 1 and len(conditional) == 1, (
+        "exactly one build runs on every event; exactly one is gated to push:main"
+    )
+    gate_if = str(conditional[0].get("if"))
+    assert "github.ref == 'refs/heads/main'" in gate_if, (
+        "the second build must be step-level gated to the main ref"
+    )
+    assert "refs/heads/main" in gate_if, (
+        "the second build must only run on main (PRs build once)"
+    )
+
+    text = _steps_text(job)
+    assert "prodline.gates.build_gate record" in text, (
+        "build-win must record event-tiered evidence"
+    )
+    assert "prodline.gates.build_gate check" in text, (
+        "build-win must gate the receipt (exit 3 = never ran, exit 1 = failed)"
+    )
+    assert "--expect-commit" in text, "the gate must bind the receipt to the run's commit"
+
+    record_steps = [
+        step
+        for step in job.get("steps") or []
+        if isinstance(step, dict) and "build_gate record" in str(step.get("run") or "")
+    ]
+    check_steps = [
+        step
+        for step in job.get("steps") or []
+        if isinstance(step, dict) and "build_gate check" in str(step.get("run") or "")
+    ]
+    assert len(record_steps) == 1 and record_steps[0].get("if") == "always()", (
+        "the record step must run even after a failed build so the failure leaves a receipt"
+    )
+    assert len(check_steps) == 1 and check_steps[0].get("if") == "always()", (
+        "the gate step must run even after a failed build so it reports fail, not missing"
+    )
+
+    uploads = [
+        step
+        for step in job.get("steps") or []
+        if isinstance(step, dict) and str(step.get("uses") or "").startswith("actions/upload-artifact")
+    ]
+    assert uploads, "build-win must upload its receipt for later aggregation"
+    assert uploads[0].get("if") == "always()", "the receipt upload must run on failure too"
+
+    aggregator = jobs["all-checks-passed"]
+    needs = aggregator.get("needs")
+    needs = {needs} if isinstance(needs, str) else set(needs or [])
+    assert "build-win" in needs, "all-checks-passed must depend on build-win"
+    assert "test \"${{ needs.build-win.result }}\" = \"success\"" in _steps_text(aggregator), (
+        "the aggregator must turn a skipped/failed build-win into a red required check"
     )
 
 
