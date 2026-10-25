@@ -24,11 +24,14 @@ Case keys (all optional except ``id``/``expect``):
 
 from __future__ import annotations
 
+import atexit
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import tempfile
+import tomllib
 import zipfile
 from dataclasses import dataclass
 from functools import lru_cache
@@ -103,6 +106,7 @@ def _git(repo: Path, *args: str, env: dict[str, str] | None = None) -> str:
 def default_git_meta() -> GitMeta:
     """A real commit of ``tree/base``; its tree id is the fixture ground truth."""
     root = Path(tempfile.mkdtemp(prefix="gugu-artifact-fixture-git-"))
+    atexit.register(shutil.rmtree, root, ignore_errors=True)
     for rel, data in read_base_files().items():
         target = root / rel
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -176,14 +180,10 @@ def _manifest(
     git_meta: GitMeta,
 ) -> dict[str, Any]:
     product = base["GUGU_VERSION"].decode("utf-8").strip()
-    pyproject = base["pyproject.toml"].decode("utf-8")
+    pyproject = tomllib.loads(base["pyproject.toml"].decode("utf-8"))
     desktop = json.loads(base["apps/desktop/package.json"])["version"]
     upstream_tag = json.loads(base["arch/upstream.lock"])["tag"]
-    kernel_version = "0.21.5"
-    for line in pyproject.splitlines():
-        if line.strip().startswith("version"):
-            kernel_version = line.split("=", 1)[1].strip().strip('"')
-            break
+    kernel_version = pyproject["project"]["version"]
     return {
         "schema": "artifact-manifest/v1",
         "commit": git_meta.commit,

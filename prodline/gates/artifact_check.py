@@ -45,6 +45,7 @@ import sys
 import tempfile
 import tomllib
 import zipfile
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Sequence
@@ -584,7 +585,7 @@ def check_artifact(
         infos = archive.infolist()
         names = [info.filename for info in infos]
         if len(names) != len(set(names)):
-            duplicates = sorted({name for name in names if names.count(name) > 1})
+            duplicates = sorted(name for name, count in Counter(names).items() if count > 1)
             result.problems.append(f"zip: duplicate entries: {duplicates[:5]}")
         result.checks.append("zip-entry-uniqueness")
 
