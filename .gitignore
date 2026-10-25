@@ -311,6 +311,10 @@ native/fts5_cjk/*.so
 # 内测便携包输出（不入库）
 apps/desktop/release-portable/
 
+# 产线本地产物（artifact.zip / artifact-manifest.json / receipts / acceptance-report）
+# 由 prodline 的 A/B 门禁在 `artifacts/` 下生成；绝不入库（A01 契约）。
+/artifacts/
+
 # 内部文档（对标调研、商务向材料）——公开仓库只放 docs/
 .docs/
 
